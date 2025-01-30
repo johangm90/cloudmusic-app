@@ -1,0 +1,52 @@
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="app_name" translatable="false">Cloud Music</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+
+    <string name="action_settings">Settings</string>
+    <string name="action_search">Search</string>
+
+    <string name="search">Search</string>
+    <string name="playlists">Playlists</string>
+    <string name="about">About</string>
+
+    <string name="download">Download</string>
+    <string name="edit">Edit</string>
+    <string name="delete">Delete</string>
+
+    <string name="about_body"><![CDATA[
+        <b>Cloud Music</b>, a humble App by <br/><b>Johan Guerreros</b>.<br/>
+        <a href=\'http://jgm90.com\'>Website</a>&nbsp;&nbsp;
+        <a href=\'https://twitter.com/johangm90\'>Twitter</a>&nbsp;&nbsp;
+        <a href=\'https://google.com/+johanguerreros\'>Google+</a>&nbsp;&nbsp;
+        <a href=\'https://github.com/johangm90\'>GitHub</a>
+    ]]></string>
+
+    <string name="durationformatshort" translatable="false"><xliff:g id="format">%2$d:%3$02d</xliff:g></string>
+    <string name="durationformatlong" translatable="false"><xliff:g id="format">%1$d:%2$02d:%3$02d</xliff:g></string>
+
+    <!-- Error messages -->
+    <string name="error_offline">You are offline\nPlease connect to internet and tap here to try again</string>
+    <string name="error_retrofit">Something goes wrong\nPlease tap here to try again</string>
+    <string name="error_server">Cannot connect to server. Please, check your Internet connectivity.</string>
+
+    <!-- Search messages -->
+    <string name="search_message">Search Cloud Music\n Find your favorite song</string>
+
+    <!-- Playlist messages -->
+    <string name="no_playlists">No playlists found</string>
+    <string name="action_add_playlist">Add playlist</string>
+    <string name="no_songs">No songs found</string>
+
+    <plurals name="playlist_messages">
+        <item quantity="one">%d song</item>
+        <item quantity="other">%d songs</item>
+    </plurals>
+
+    <string name="changelog"><![CDATA[
+        <b>[NEW]</b> Lanzamiento inicial beta<br/>
+        <b>[NOTE]</b> Tiene muchos bugs xd<br/>
+    ]]></string>
+    <string name="title_activity_playlist_detail">Playlist</string>
+</resources>

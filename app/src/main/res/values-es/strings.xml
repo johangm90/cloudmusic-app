@@ -1,0 +1,39 @@
+<resources>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+
+    <string name="action_settings">Ajustes</string>
+    <string name="action_search">Buscar</string>
+
+    <string name="about">Acerca de</string>
+    <string name="about_body"><![CDATA[
+        <b>Cloud Music</b>, a humble App by <br/><b>Johan Guerreros</b>.<br/>
+        <a href=\'http://jgm90.com\'>Website</a>&nbsp;&nbsp;
+        <a href=\'https://twitter.com/johangm90\'>Twitter</a>&nbsp;&nbsp;
+        <a href=\'https://google.com/+johanguerreros\'>Google+</a>&nbsp;&nbsp;
+        <a href=\'https://github.com/johangm90\'>GitHub</a>
+    ]]></string>
+
+    <!-- Error messages -->
+    <string name="error_offline">You are offline\nPlease connect to internet and tap here to try again</string>
+    <string name="error_retrofit">Something goes wrong\nPlease tap here to try again</string>
+    <string name="error_server">Cannot connect to server. Please, check your Internet connectivity.</string>
+
+    <!-- Playlist messages -->
+    <string name="no_playlists">No hay listas de reproduccion</string>
+    <string name="action_add_playlist">Add playlist</string>
+
+    <string name="changelog"><![CDATA[
+        <b>[NEW]</b> Lanzamiento inicial beta<br/>
+        <b>[NOTE]</b> Tiene muchos bugs xd<br/>
+    ]]></string>
+    <string name="search_message">Busqueda Cloud Music\n Busca tu canción favorita</string>
+    <string name="search">Buscar</string>
+    <string name="playlists">Playlists</string>
+    <string name="edit">Editar</string>
+    <string name="delete">Eliminar</string>
+    <string name="download">Descargar</string>
+    <string name="no_songs">No hay canciones</string>
+    <string name="title_activity_playlist_detail">Playlist</string>
+</resources>

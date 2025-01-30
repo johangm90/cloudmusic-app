@@ -1,0 +1,72 @@
+package com.jgm90.cloudmusic.listeners;
+
+import android.content.Context;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+import android.view.View;
+
+public class SwipeTouchListener implements View.OnTouchListener {
+
+    private GestureDetector gestureDetector;
+
+    public SwipeTouchListener(Context c) {
+        gestureDetector = new GestureDetector(c, new GestureListener());
+    }
+
+    public boolean onTouch(final View view, final MotionEvent motionEvent) {
+        return gestureDetector.onTouchEvent(motionEvent);
+    }
+
+    public void onSwipeRight(float velocity) {
+    }
+
+    public void onSwipeLeft(float velocity) {
+    }
+
+    public void onSwipeUp(float velocity) {
+    }
+
+    public void onSwipeDown(float velocity) {
+    }
+
+    private final class GestureListener extends GestureDetector.SimpleOnGestureListener {
+
+        private static final int SWIPE_THRESHOLD = 100;
+        private static final int SWIPE_VELOCITY_THRESHOLD = 100;
+
+        @Override
+        public boolean onDown(MotionEvent e) {
+            return true;
+        }
+
+        // Determines the fling velocity and then fires the appropriate swipe event accordingly
+        @Override
+        public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            boolean result = false;
+            try {
+                float diffY = e2.getY() - e1.getY();
+                float diffX = e2.getX() - e1.getX();
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                        if (diffX > 0) {
+                            onSwipeRight(velocityX);
+                        } else {
+                            onSwipeLeft(velocityX);
+                        }
+                    }
+                } else {
+                    if (Math.abs(diffY) > SWIPE_THRESHOLD && Math.abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
+                        if (diffY > 0) {
+                            onSwipeDown(velocityY);
+                        } else {
+                            onSwipeUp(velocityY);
+                        }
+                    }
+                }
+            } catch (Exception exception) {
+                exception.printStackTrace();
+            }
+            return result;
+        }
+    }
+}

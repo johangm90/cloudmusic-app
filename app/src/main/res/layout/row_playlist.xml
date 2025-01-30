@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:paddingBottom="8dp"
+    android:paddingEnd="8dp"
+    android:paddingStart="16dp"
+    android:paddingTop="8dp">
+
+    <TextView
+        android:id="@+id/lbl_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_toStartOf="@+id/btn_menu"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#333"
+        android:textSize="16sp"
+        tools:text="Playlist 2020" />
+
+    <TextView
+        android:id="@+id/lbl_song_count"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/lbl_name"
+        android:layout_marginEnd="16dp"
+        android:layout_toStartOf="@+id/btn_menu"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/subtitle"
+        android:textSize="14sp"
+        tools:text="100 songs" />
+
+    <ImageView
+        android:id="@+id/btn_menu"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="4dp"
+        android:src="@drawable/ic_more_vert_black_24dp"
+        android:tint="#898B8C" />
+
+</RelativeLayout>

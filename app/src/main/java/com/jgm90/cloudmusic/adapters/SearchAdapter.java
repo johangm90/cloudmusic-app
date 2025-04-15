@@ -83,24 +83,21 @@ public class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.ViewHolder
             if (v.getId() == btn_menu.getId()) {
                 PopupMenu popup = new PopupMenu(v.getContext(), v);
                 popup.inflate(R.menu.menu_video);
-                popup.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
-                    @Override
-                    public boolean onMenuItemClick(MenuItem item) {
-                        SongModel song = model.get(getAdapterPosition());
-                        String url = SharedUtils.server + "play/" + song.getId() + "/160";
-                        String filename;
-                        filename = song.getName() + ".mp3";
-                        filename = filename.replaceAll("\\\\|>|<|\"|\\||\\*|\\?|%|:|#|/", "");
-                        int itemId = item.getItemId();
-                        if (itemId == R.id.video_descargar) {
-                            EventBus.getDefault().postSticky(new DownloadEvent(true, DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED, url, song.getName(), filename));
-                            return true;
-                        } else if (itemId == R.id.video_add_to_playlist) {
-                            new AddToPlaylistDialog(context).show(song);
-                            return true;
-                        }
+                popup.setOnMenuItemClickListener(item -> {
+                    SongModel song = model.get(getAdapterPosition());
+                    String url = SharedUtils.server + "play/" + song.getId() + "/160";
+                    String filename;
+                    filename = song.getName() + ".mp3";
+                    filename = filename.replaceAll("\\\\|>|<|\"|\\||\\*|\\?|%|:|#|/", "");
+                    int itemId = item.getItemId();
+                    if (itemId == R.id.video_descargar) {
+                        EventBus.getDefault().postSticky(new DownloadEvent(true, DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED, url, song.getName(), filename));
+                        return true;
+                    } else if (itemId == R.id.video_add_to_playlist) {
+                        new AddToPlaylistDialog(context).show(song);
                         return true;
                     }
+                    return true;
                 });
                 popup.show();
             } else {

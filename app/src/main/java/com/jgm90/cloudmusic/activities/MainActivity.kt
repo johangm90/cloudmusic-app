@@ -23,7 +23,7 @@ import com.google.android.material.navigation.NavigationView
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.events.DownloadEvent
 import com.jgm90.cloudmusic.fragments.PlaylistFragment
-import com.jgm90.cloudmusic.fragments.SearchFragment
+import com.jgm90.cloudmusic.feature.search.presentation.SearchFragment
 import com.jgm90.cloudmusic.models.UpdateModel
 import com.jgm90.cloudmusic.utils.RestClient
 import com.jgm90.cloudmusic.utils.SharedUtils

@@ -98,15 +98,6 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
         mRecyclerView!!.itemAnimator!!.addDuration = SharedUtils.rv_anim_duration.toLong()
         mRecyclerView!!.setAdapter(null)
         mModel = ArrayList<SongModel?>()
-        //setHasOptionsMenu(true);
-        if (savedInstanceState != null) {
-            listState = savedInstanceState.getParcelable<Parcelable?>(LIST_STATE_KEY)
-            mModel = savedInstanceState.getParcelableArrayList<SongModel?>(LIST_ARRAY)
-            mAdapter = SongAdapter(mModel, this, this, this)
-            mRecyclerView!!.setAdapter(mAdapter)
-            mAdapter!!.notifyDataSetChanged()
-            setUpTouch()
-        }
         val extras = intent.extras
         if (extras != null) {
             id = extras.getInt("PLAYLIST_ID")
@@ -264,13 +255,6 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
         itemTouchHelper!!.attachToRecyclerView(mRecyclerView)
     }
 
-    public override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        listState = mLayoutManager!!.onSaveInstanceState()
-        outState.putParcelable(LIST_STATE_KEY, listState)
-        outState.putParcelableArrayList(LIST_ARRAY, ArrayList<SongModel?>(mModel))
-    }
-
     public override fun onResume() {
         super.onResume()
         if (listState != null) {
@@ -321,10 +305,5 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
 
     override fun onDrag(viewHolder: RecyclerView.ViewHolder) {
         itemTouchHelper!!.startDrag(viewHolder)
-    }
-
-    companion object {
-        const val LIST_STATE_KEY: String = "recycler_list_state"
-        const val LIST_ARRAY: String = "recycler_list_model"
     }
 }

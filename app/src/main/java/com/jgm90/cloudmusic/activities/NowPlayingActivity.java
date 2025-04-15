@@ -332,25 +332,6 @@ public class NowPlayingActivity extends BaseActivity {
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        if (song != null) {
-            outState.putParcelable(SONG_OBJECT, song);
-        } else {
-            if (song_call != null) {
-                song_call.cancel();
-            }
-        }
-        if (lyricModel != null) {
-            outState.putParcelable(LYRICS_OBJECT, lyricModel);
-        } else {
-            if (lyrics_call != null) {
-                lyrics_call.cancel();
-            }
-        }
-    }
-
-    @Override
     protected void onPause() {
         super.onPause();
         progress_handler.removeCallbacks(mUpdateProgress);

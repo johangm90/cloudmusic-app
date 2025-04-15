@@ -76,8 +76,8 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.ViewHolder> im
         if (selectedItem != null) {
             selectedItem.setPosition(toPosition + 1);
             selectedItem.setPosition_date(SharedUtils.getDateTime());
-            Log.d("Item", "Position: " + String.valueOf(selectedItem.getPosition()));
-            Log.d("Item", "Position DateTime: " + String.valueOf(selectedItem.getPosition_date()));
+            Log.d("Item", "Position: " + selectedItem.getPosition());
+            Log.d("Item", "Position DateTime: " + selectedItem.getPosition_date());
             dao.update(selectedItem);
         }
         return true;

@@ -8,16 +8,16 @@ import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.widget.AppCompatImageView;
+import androidx.viewpager.widget.PagerAdapter;
+
 import com.jgm90.cloudmusic.GlideApp;
 import com.jgm90.cloudmusic.R;
 import com.jgm90.cloudmusic.models.SongModel;
 import com.jgm90.cloudmusic.utils.SharedUtils;
 
 import java.util.List;
-
-import androidx.annotation.NonNull;
-import androidx.appcompat.widget.AppCompatImageView;
-import androidx.viewpager.widget.PagerAdapter;
 
 public class SlidePagerAdapter extends PagerAdapter {
 

@@ -2,13 +2,14 @@ package com.jgm90.cloudmusic.widgets;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.util.AttributeSet;
+import android.util.TypedValue;
+import android.view.View;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
-import android.util.AttributeSet;
-import android.util.TypedValue;
-import android.view.View;
 
 import com.jgm90.cloudmusic.adapters.InfinitePagerAdapter;
 

@@ -10,10 +10,11 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.Drawable;
-import androidx.annotation.Nullable;
 import android.util.Log;
 import android.util.Property;
 import android.view.animation.DecelerateInterpolator;
+
+import androidx.annotation.Nullable;
 
 public class PlayPauseDrawable extends Drawable {
 

@@ -1,7 +1,6 @@
 package com.jgm90.cloudmusic.activities
 
 import android.app.DownloadManager
-import android.content.Intent
 import android.content.pm.PackageInfo
 import android.net.Uri
 import android.os.Bundle
@@ -22,18 +21,12 @@ import com.afollestad.materialdialogs.MaterialDialog.SingleButtonCallback
 import com.google.android.material.navigation.NavigationView
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.events.DownloadEvent
-import com.jgm90.cloudmusic.fragments.PlaylistFragment
 import com.jgm90.cloudmusic.feature.search.presentation.SearchFragment
-import com.jgm90.cloudmusic.models.UpdateModel
-import com.jgm90.cloudmusic.utils.RestClient
+import com.jgm90.cloudmusic.fragments.PlaylistFragment
 import com.jgm90.cloudmusic.utils.SharedUtils
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
-import java.lang.Exception
 
 class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedListener {
     private val SF_TAG = "sf_tag"
@@ -81,58 +74,7 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
             }
         }
         EventBus.getDefault().register(this)
-        checkForUpdate()
         showChangelog()
-    }
-
-    fun checkForUpdate() {
-        try {
-            val api = RestClient.build(SharedUtils.server)
-            val call = api.checkUpdate()
-            call.enqueue(object : Callback<UpdateModel?> {
-                override fun onResponse(
-                    call: Call<UpdateModel?>?,
-                    response: Response<UpdateModel?>?
-                ) {
-                    if (response!!.isSuccessful) {
-                        if (response.body() != null) {
-                            val version = response.body()!!.version
-                            val url = response.body()!!.download_url
-                            val date = response.body()!!.published_at
-                            val local_version = packageInfo!!.versionName!!.toDouble()
-                            val online_version = version.toDouble()
-                            if (online_version > local_version) {
-                                MaterialDialog.Builder(this@MainActivity)
-                                    .title("Update available")
-                                    .content("Version: " + version + "\nPublished at: " + date)
-                                    .cancelable(false)
-                                    .positiveText("Descargar")
-                                    .onPositive(object : SingleButtonCallback {
-                                        override fun onClick(
-                                            dialog: MaterialDialog,
-                                            which: DialogAction
-                                        ) {
-                                            val uri = Uri.parse(url)
-                                            val intent = Intent(Intent.ACTION_VIEW, uri)
-                                            startActivity(intent)
-                                        }
-                                    })
-                                    .negativeText("Cancelar")
-                                    .show()
-                            }
-                        }
-                    } else {
-                        Log.e("App", "Server error: " + response.code())
-                    }
-                }
-
-                override fun onFailure(call: Call<UpdateModel?>?, t: Throwable?) {
-                    Log.e("App", "Server error")
-                }
-            })
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
     fun showChangelog() {

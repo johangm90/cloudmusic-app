@@ -2,11 +2,6 @@ package com.jgm90.cloudmusic.fragments;
 
 import android.os.Bundle;
 import android.os.Parcelable;
-import androidx.core.view.MenuItemCompat;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-import androidx.appcompat.widget.SearchView;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -14,6 +9,13 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
+import androidx.core.view.MenuItemCompat;
+import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.jgm90.cloudmusic.R;
 import com.jgm90.cloudmusic.R2;
@@ -34,7 +36,7 @@ import butterknife.ButterKnife;
 import butterknife.OnClick;
 import butterknife.Unbinder;
 
-public class PlaylistFragment extends BaseFragment implements SearchView.OnQueryTextListener, DialogCaller {
+public class PlaylistFragment extends Fragment implements SearchView.OnQueryTextListener, DialogCaller {
 
     public final static String LIST_STATE_KEY = "recycler_list_state";
     public final static String LIST_ARRAY = "recycler_list_model";

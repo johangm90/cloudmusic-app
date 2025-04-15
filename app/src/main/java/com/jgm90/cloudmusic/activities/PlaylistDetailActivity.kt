@@ -1,6 +1,5 @@
 package com.jgm90.cloudmusic.activities
 
-import android.app.DownloadManager
 import android.os.Bundle
 import android.os.Parcelable
 import android.text.TextUtils
@@ -23,7 +22,6 @@ import com.jgm90.cloudmusic.R2
 import com.jgm90.cloudmusic.adapters.SongAdapter
 import com.jgm90.cloudmusic.data.PlaylistData
 import com.jgm90.cloudmusic.data.SongData
-import com.jgm90.cloudmusic.events.DownloadEvent
 import com.jgm90.cloudmusic.interfaces.DialogCaller
 import com.jgm90.cloudmusic.interfaces.OnStartDragListener
 import com.jgm90.cloudmusic.listeners.ItemTouchCallback
@@ -39,7 +37,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.greenrobot.eventbus.EventBus
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -47,8 +44,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
-import java.lang.Exception
-import java.util.ArrayList
 
 class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener {
     @JvmField

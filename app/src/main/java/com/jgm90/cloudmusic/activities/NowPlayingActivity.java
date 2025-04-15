@@ -19,6 +19,15 @@ import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.widget.Toolbar;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
+import androidx.core.content.ContextCompat;
+import androidx.palette.graphics.Palette;
+import androidx.viewpager.widget.ViewPager;
+
 import com.bumptech.glide.request.target.SimpleTarget;
 import com.bumptech.glide.request.transition.Transition;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -49,14 +58,6 @@ import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.List;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.widget.Toolbar;
-import androidx.coordinatorlayout.widget.CoordinatorLayout;
-import androidx.core.content.ContextCompat;
-import androidx.palette.graphics.Palette;
-import androidx.viewpager.widget.ViewPager;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
@@ -135,20 +136,20 @@ public class NowPlayingActivity extends BaseActivity {
                     for (int i = 0; i < lyrics.size(); i++) {
                         int pos = (int) lyrics.get(i).getTime() * 1000;
                         if (pos <= position && current_line == 0) {
-                            if (!lyrics.get(i).getLyric().equals("")) {
-                                currentLine.setText(lyrics.get(i).getLyric().replace("&apos;", "'"));
+                            if (!lyrics.get(i).lyric.equals("")) {
+                                currentLine.setText(lyrics.get(i).lyric.replace("&apos;", "'"));
                                 animteLyric();
                             }
-                            nextLine.setText(lyrics.get(i + 1).getLyric().replace("&apos;", "'"));
+                            nextLine.setText(lyrics.get(i + 1).lyric.replace("&apos;", "'"));
                         }
                         if (pos <= position && i > current_line) {
-                            if (!lyrics.get(i).getLyric().equals("")) {
-                                currentLine.setText(lyrics.get(i).getLyric().replace("&apos;", "'"));
+                            if (!lyrics.get(i).lyric.equals("")) {
+                                currentLine.setText(lyrics.get(i).lyric.replace("&apos;", "'"));
                                 animteLyric();
                             }
                             current_line = i;
                             if (i + 1 < lyrics.size()) {
-                                nextLine.setText(lyrics.get(i + 1).getLyric().replace("&apos;", "'"));
+                                nextLine.setText(lyrics.get(i + 1).lyric.replace("&apos;", "'"));
                             } else {
                                 nextLine.setText("");
                             }

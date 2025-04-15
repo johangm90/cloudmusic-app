@@ -1,4 +1,5 @@
 package com.jgm90.cloudmusic.ui.theme
+
 import androidx.compose.ui.graphics.Color
 
 val primaryLight = Color(0xFF64558F)

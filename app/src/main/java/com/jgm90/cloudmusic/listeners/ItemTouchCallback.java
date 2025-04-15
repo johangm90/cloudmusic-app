@@ -1,9 +1,10 @@
 package com.jgm90.cloudmusic.listeners;
 
 import android.graphics.Canvas;
+
 import androidx.recyclerview.widget.GridLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.jgm90.cloudmusic.adapters.SongAdapter;
 import com.jgm90.cloudmusic.interfaces.ItemTouchHelperViewHolder;

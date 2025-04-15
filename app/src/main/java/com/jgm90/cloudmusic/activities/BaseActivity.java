@@ -7,8 +7,9 @@ import android.content.ServiceConnection;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.IBinder;
-import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.jgm90.cloudmusic.R;
 import com.jgm90.cloudmusic.fragments.PlaybackControlsFragment;

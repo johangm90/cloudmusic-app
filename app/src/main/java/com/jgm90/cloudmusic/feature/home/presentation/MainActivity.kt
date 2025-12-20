@@ -5,34 +5,26 @@ import android.content.Intent
 import android.content.pm.PackageInfo
 import android.os.Bundle
 import android.os.Environment
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.core.text.HtmlCompat
@@ -57,7 +49,6 @@ import com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistScreen
 import com.jgm90.cloudmusic.feature.search.presentation.SearchScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : BaseActivity() {
@@ -77,7 +68,6 @@ class MainActivity : BaseActivity() {
             CloudMusicTheme {
                 val showPlayback by playbackControlsVisible
                 MainContent(
-                    versionName = versionName,
                     showChangelog = shouldShowChangelog,
                     showPlayback = showPlayback,
                     onChangelogDismiss = {
@@ -153,7 +143,6 @@ private enum class HomeDestination {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainContent(
-    versionName: String,
     showChangelog: Boolean,
     showPlayback: Boolean,
     onChangelogDismiss: () -> Unit,
@@ -161,96 +150,67 @@ private fun MainContent(
     onOpenNowPlayingWithList: (Int, List<com.jgm90.cloudmusic.core.model.SongModel>) -> Unit,
     onOpenPlaylist: (PlaylistModel) -> Unit,
 ) {
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
     var destination by remember { mutableStateOf(HomeDestination.Search) }
     var showAbout by remember { mutableStateOf(false) }
     var showChangelogDialog by remember { mutableStateOf(showChangelog) }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                modifier = Modifier.fillMaxHeight(),
-            ) {
-                DrawerHeader(versionName = versionName)
-                NavigationDrawerItem(
-                    label = { Text(text = stringResource(id = R.string.search)) },
-                    selected = destination == HomeDestination.Search,
-                    onClick = {
-                        destination = HomeDestination.Search
-                        scope.launch { drawerState.close() }
-                    },
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_search_black_24dp),
-                            contentDescription = null,
-                        )
-                    },
-                )
-                NavigationDrawerItem(
-                    label = { Text(text = stringResource(id = R.string.playlists)) },
-                    selected = destination == HomeDestination.Playlists,
-                    onClick = {
-                        destination = HomeDestination.Playlists
-                        scope.launch { drawerState.close() }
-                    },
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_library_music_black_24dp),
-                            contentDescription = null,
-                        )
-                    },
-                )
-                NavigationDrawerItem(
-                    label = { Text(text = stringResource(id = R.string.about)) },
-                    selected = false,
-                    onClick = {
-                        showAbout = true
-                        scope.launch { drawerState.close() }
-                    },
-                    icon = {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = when (destination) {
+                            HomeDestination.Search -> stringResource(R.string.search)
+                            HomeDestination.Playlists -> stringResource(R.string.playlists)
+                        }
+                    )
+                },
+                actions = {
+                    IconButton(onClick = { showAbout = true }) {
                         Icon(
                             painter = painterResource(R.drawable.ic_info_black_24dp),
                             contentDescription = null,
                         )
-                    },
-                )
-            }
+                    }
+                },
+            )
         },
-    ) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = when (destination) {
-                                HomeDestination.Search -> stringResource(R.string.search)
-                                HomeDestination.Playlists -> stringResource(R.string.playlists)
-                            }
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_more_vert_black_24dp),
-                                contentDescription = null,
-                            )
-                        }
-                    },
-                )
-            },
-            bottomBar = {
+        bottomBar = {
+            Column {
                 if (showPlayback) {
                     PlaybackControlsBar(onOpenNowPlaying = onOpenNowPlaying)
                 }
-            }
-        ) { padding ->
-            Box(modifier = Modifier.padding(padding)) {
-                when (destination) {
-                    HomeDestination.Search -> SearchScreen(onOpenNowPlaying = onOpenNowPlayingWithList)
-                    HomeDestination.Playlists -> PlaylistScreen(onOpenPlaylist = onOpenPlaylist)
+                NavigationBar {
+                    NavigationBarItem(
+                        selected = destination == HomeDestination.Search,
+                        onClick = { destination = HomeDestination.Search },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_search_black_24dp),
+                                contentDescription = null,
+                            )
+                        },
+                        label = { Text(text = stringResource(R.string.search)) },
+                    )
+                    NavigationBarItem(
+                        selected = destination == HomeDestination.Playlists,
+                        onClick = { destination = HomeDestination.Playlists },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_library_music_black_24dp),
+                                contentDescription = null,
+                            )
+                        },
+                        label = { Text(text = stringResource(R.string.playlists)) },
+                    )
                 }
+            }
+        }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding)) {
+            when (destination) {
+                HomeDestination.Search -> SearchScreen(onOpenNowPlaying = onOpenNowPlayingWithList)
+                HomeDestination.Playlists -> PlaylistScreen(onOpenPlaylist = onOpenPlaylist)
             }
         }
     }
@@ -283,28 +243,6 @@ private fun MainContent(
                 }) { Text(text = "OK") }
             },
         )
-    }
-}
-
-@Composable
-private fun DrawerHeader(versionName: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(
-            text = stringResource(id = R.string.app_name),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        if (versionName.isNotEmpty()) {
-            Text(
-                text = "v$versionName",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
     }
 }
 

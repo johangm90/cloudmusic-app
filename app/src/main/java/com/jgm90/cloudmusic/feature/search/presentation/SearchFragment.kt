@@ -24,6 +24,7 @@ import com.jgm90.cloudmusic.databinding.FragmentSearchBinding
 import com.jgm90.cloudmusic.feature.playlist.presentation.dialogs.AddToPlaylistDialog
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.DownloadEvent
+import com.jgm90.cloudmusic.feature.playlist.presentation.viewmodel.PlaylistViewModel
 import com.jgm90.cloudmusic.feature.search.presentation.viewmodel.SearchViewModel
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -36,6 +37,7 @@ class SearchFragment : Fragment(), SearchView.OnQueryTextListener {
     private var _binding: FragmentSearchBinding? = null
     private val binding get() = _binding!!
     private val viewModel by viewModels<SearchViewModel>()
+    private val playlistViewModel by viewModels<PlaylistViewModel>()
     private var searchQuery: String? = null
     private var searchView: SearchView? = null
 
@@ -95,7 +97,7 @@ class SearchFragment : Fragment(), SearchView.OnQueryTextListener {
                                     )
                                 },
                                 onAddToPlaylistClick = {
-                                    AddToPlaylistDialog(requireContext()).show(song)
+                                    AddToPlaylistDialog(requireContext(), playlistViewModel).show(song)
                                 }
                             )
                             HorizontalDivider()

@@ -1,14 +1,14 @@
 package com.jgm90.cloudmusic.feature.playlist.data
 
-import android.content.Context
-import com.jgm90.cloudmusic.core.data.local.CloudMusicDatabase
+import com.jgm90.cloudmusic.core.data.local.dao.PlaylistDao
 import com.jgm90.cloudmusic.core.data.local.dao.PlaylistWithCount
 import com.jgm90.cloudmusic.core.data.local.entity.PlaylistEntity
 import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
+import javax.inject.Inject
 
-class PlaylistData(context: Context) {
-    private val playlistDao = CloudMusicDatabase.getInstance(context).playlistDao()
-
+class PlaylistRepository @Inject constructor(
+    private val playlistDao: PlaylistDao,
+) {
     suspend fun getById(id: Int): PlaylistModel? {
         return playlistDao.getById(id)?.toModel()
     }
@@ -17,17 +17,17 @@ class PlaylistData(context: Context) {
         return playlistDao.getAllWithCount().map { it.toModel() }
     }
 
-    suspend fun insert(obj: PlaylistModel) {
-        playlistDao.insert(obj.toEntity())
+    suspend fun insert(model: PlaylistModel) {
+        playlistDao.insert(model.toEntity())
     }
 
-    suspend fun update(obj: PlaylistModel) {
-        playlistDao.update(obj.toEntity())
+    suspend fun update(model: PlaylistModel) {
+        playlistDao.update(model.toEntity())
     }
 
-    suspend fun delete(obj: PlaylistModel) {
-        playlistDao.deleteSongsForPlaylist(obj.playlist_id)
-        playlistDao.delete(obj.toEntity())
+    suspend fun delete(model: PlaylistModel) {
+        playlistDao.deleteSongsForPlaylist(model.playlist_id)
+        playlistDao.delete(model.toEntity())
     }
 
     private fun PlaylistEntity.toModel(): PlaylistModel {

@@ -6,30 +6,23 @@ import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.afollestad.materialdialogs.DialogAction
 import com.afollestad.materialdialogs.MaterialDialog
-import com.jgm90.cloudmusic.databinding.DialogAddToPlaylistBinding
-import com.jgm90.cloudmusic.feature.playlist.presentation.adapter.PlaylistsAdapter
-import com.jgm90.cloudmusic.feature.playlist.data.PlaylistData
-import com.jgm90.cloudmusic.feature.playlist.data.SongData
-import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
-import com.jgm90.cloudmusic.feature.playlist.presentation.contract.ListCaller
-import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.ui.decoration.Divider
-import com.jgm90.cloudmusic.core.util.SharedUtils
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.jgm90.cloudmusic.databinding.DialogAddToPlaylistBinding
+import com.jgm90.cloudmusic.feature.playlist.presentation.adapter.PlaylistsAdapter
+import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
+import com.jgm90.cloudmusic.feature.playlist.presentation.contract.ListCaller
+import com.jgm90.cloudmusic.feature.playlist.presentation.viewmodel.PlaylistViewModel
 
-class AddToPlaylistDialog(private val context: Context) : ListCaller, DialogCaller {
+class AddToPlaylistDialog(
+    private val context: Context,
+    private val viewModel: PlaylistViewModel,
+) : ListCaller, DialogCaller {
     private var dialog: MaterialDialog? = null
     private var binding: DialogAddToPlaylistBinding? = null
     private var adapter: PlaylistsAdapter? = null
     private var searchObj: SongModel? = null
     private var songObj: SongModel? = null
-    private val dao: SongData = SongData(context)
-    private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     fun show(obj: SongModel) {
         searchObj = obj
@@ -54,22 +47,29 @@ class AddToPlaylistDialog(private val context: Context) : ListCaller, DialogCall
     private fun bind() {
         val dialogBinding = binding ?: return
         dialogBinding.btnAdd.setOnClickListener {
-            PlaylistDialog(context, this).show()
+            PlaylistDialog(
+                context,
+                this,
+                onSave = { model -> viewModel.savePlaylist(model) { reload() } },
+            ).show()
         }
         dialogBinding.rvPlaylists.adapter = null
         dialogBinding.rvPlaylists.layoutManager = LinearLayoutManager(context)
         dialogBinding.rvPlaylists.setHasFixedSize(true)
         dialogBinding.rvPlaylists.addItemDecoration(Divider(context))
-        dialogBinding.rvPlaylists.itemAnimator?.addDuration = SharedUtils.rv_anim_duration.toLong()
+        dialogBinding.rvPlaylists.itemAnimator?.addDuration =
+            com.jgm90.cloudmusic.core.util.SharedUtils.rv_anim_duration.toLong()
         reload()
     }
 
     private fun reload() {
-        val dao = PlaylistData(context)
-        uiScope.launch {
-            val playlists = withContext(Dispatchers.IO) { dao.getAll() }
+        viewModel.loadPlaylists { playlists ->
             if (playlists.isNotEmpty()) {
-                adapter = PlaylistsAdapter(playlists.toMutableList(), context, this@AddToPlaylistDialog as ListCaller)
+                adapter = PlaylistsAdapter(
+                    playlists.toMutableList(),
+                    context,
+                    listListener = this@AddToPlaylistDialog as ListCaller
+                )
                 binding?.rvPlaylists?.adapter = adapter
                 adapter?.notifyItemChanged(0)
             }
@@ -78,25 +78,23 @@ class AddToPlaylistDialog(private val context: Context) : ListCaller, DialogCall
 
     override fun onListItemClick(itemId: Int) {
         val searchItem = searchObj ?: return
-        uiScope.launch {
-            val nextPosition = withContext(Dispatchers.IO) { dao.getNextPosition() }
-            songObj = SongModel(
-                searchItem.id,
-                searchItem.name,
-                searchItem.artist,
-                searchItem.album,
-                searchItem.pic_id,
-                searchItem.url_id,
-                searchItem.lyric_id,
-                searchItem.source,
-                "",
-                "",
-                "",
-                nextPosition,
-                SharedUtils.dateTime,
-                itemId,
-            )
-            withContext(Dispatchers.IO) { dao.insert(songObj!!) }
+        songObj = SongModel(
+            searchItem.id,
+            searchItem.name,
+            searchItem.artist,
+            searchItem.album,
+            searchItem.pic_id,
+            searchItem.url_id,
+            searchItem.lyric_id,
+            searchItem.source,
+            "",
+            "",
+            "",
+            0,
+            com.jgm90.cloudmusic.core.util.SharedUtils.dateTime,
+            itemId,
+        )
+        viewModel.addSongToPlaylist(songObj!!, itemId) {
             Toast.makeText(context, "Item added to playlist", Toast.LENGTH_SHORT).show()
             dialog?.dismiss()
         }

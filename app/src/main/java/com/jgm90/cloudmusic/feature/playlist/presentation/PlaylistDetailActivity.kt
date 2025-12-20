@@ -16,20 +16,19 @@ import com.jgm90.cloudmusic.core.app.BaseActivity
 import com.jgm90.cloudmusic.core.network.RestInterface
 import com.jgm90.cloudmusic.databinding.ActivityPlaylistDetailBinding
 import com.jgm90.cloudmusic.feature.playlist.presentation.adapter.SongAdapter
-import com.jgm90.cloudmusic.feature.playlist.data.PlaylistData
-import com.jgm90.cloudmusic.feature.playlist.data.SongData
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.OnStartDragListener
 import com.jgm90.cloudmusic.feature.playlist.presentation.listener.ItemTouchCallback
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.ui.decoration.Divider
 import com.jgm90.cloudmusic.core.util.SharedUtils
+import com.jgm90.cloudmusic.feature.playlist.presentation.viewmodel.PlaylistViewModel
+import androidx.activity.viewModels
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -43,6 +42,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
     private val contentBinding get() = binding.playlistDetail
     @Inject
     lateinit var restInterface: RestInterface
+    private val viewModel by viewModels<PlaylistViewModel>()
     var search_query: String? = null
     var listState: Parcelable? = null
     private var mAdapter: SongAdapter? = null
@@ -53,8 +53,6 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
 
     private var itemTouchHelper: ItemTouchHelper? = null
 
-    private var dao: SongData? = null
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPlaylistDetailBinding.inflate(layoutInflater)
@@ -64,7 +62,6 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
         if (supportActionBar != null) {
             supportActionBar!!.setDisplayHomeAsUpEnabled(true)
         }
-        dao = SongData(this)
         mLayoutManager = LinearLayoutManager(this)
         contentBinding.rvPlaylist.layoutManager = mLayoutManager
         contentBinding.rvPlaylist.setHasFixedSize(true)
@@ -94,16 +91,10 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
         }
         contentBinding.sbOffline.setOnCheckedChangeListener(object : CompoundButton.OnCheckedChangeListener {
             override fun onCheckedChanged(buttonView: CompoundButton, b: Boolean) {
-                val playlistDao = PlaylistData(applicationContext)
-                CoroutineScope(Dispatchers.IO).launch {
-                    val playlist = playlistDao.getById(id) ?: return@launch
+                val offlineValue = if (b) 1 else 0
+                viewModel.updatePlaylistOffline(id, offlineValue) {
                     if (b) {
-                        playlist.offline = 1
-                        playlistDao.update(playlist)
                         downloadPlaylist()
-                    } else {
-                        playlist.offline = 0
-                        playlistDao.update(playlist)
                     }
                 }
             }
@@ -111,9 +102,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
     }
 
     private fun downloadPlaylist() {
-        val localDao = dao ?: return
-        CoroutineScope(Dispatchers.IO).launch {
-            val songs = localDao.getAllByPlaylist(id)
+        viewModel.loadSongs(id) { songs ->
             if (songs.isNotEmpty()) {
                 for (song in songs) {
                     if (!TextUtils.isEmpty(song.local_file)) {
@@ -167,7 +156,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
                 outputStream.close()
                 inputStream.close()
                 song.local_file = directory.absolutePath + "/" + filename
-                dao?.update(song)
+                viewModel.updateSong(song)
             } else {
                 Log.e("App", "Failed to download song(${song.name}): ${response.code}")
             }
@@ -201,7 +190,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
                 outputStream.close()
                 inputStream.close()
                 song.local_thumbnail = directory.absolutePath + "/" + filename
-                dao?.update(song)
+                viewModel.updateSong(song)
             } else {
                 Log.e("App", "Failed to download cover(${song.name}): ${response.code}")
             }
@@ -214,7 +203,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
                 .onSuccess { lyric ->
                     if (!lyric?.lyric.isNullOrEmpty()) {
                         song.local_lyric = lyric.lyric
-                        dao?.update(song)
+                        viewModel.updateSong(song)
                     } else {
                         Log.e("App", "Bad response")
                     }
@@ -247,23 +236,27 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
     }
 
     fun getSongs(id: Int) {
-        val localDao = dao ?: return
-        CoroutineScope(Dispatchers.IO).launch {
-            val model = localDao.getAllByPlaylist(id).toMutableList()
-            withContext(Dispatchers.Main) {
-                mModel = model
-                if (model.isNotEmpty()) {
-                    mAdapter = SongAdapter(model, this@PlaylistDetailActivity, this@PlaylistDetailActivity, this@PlaylistDetailActivity)
-                    contentBinding.rvPlaylist.adapter = mAdapter
-                    mAdapter!!.notifyItemChanged(0)
-                    setUpTouch()
-                } else {
-                    SharedUtils.showMessage(
-                        contentBinding.messageView,
-                        R.drawable.ic_info_black_24dp,
-                        R.string.no_songs
-                    )
-                }
+        viewModel.loadSongs(id) { model ->
+            val list = model.toMutableList()
+            mModel = list
+            if (list.isNotEmpty()) {
+                mAdapter = SongAdapter(
+                    list,
+                    this@PlaylistDetailActivity,
+                    this@PlaylistDetailActivity,
+                    this@PlaylistDetailActivity,
+                    onSongUpdated = { viewModel.updateSong(it) },
+                    onSongDeleted = { song -> viewModel.deleteSong(song) { onPositiveCall() } },
+                )
+                contentBinding.rvPlaylist.adapter = mAdapter
+                mAdapter!!.notifyItemChanged(0)
+                setUpTouch()
+            } else {
+                SharedUtils.showMessage(
+                    contentBinding.messageView,
+                    R.drawable.ic_info_black_24dp,
+                    R.string.no_songs
+                )
             }
         }
     }

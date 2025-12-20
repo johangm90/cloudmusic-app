@@ -1,13 +1,13 @@
 package com.jgm90.cloudmusic.feature.playlist.data
 
-import android.content.Context
-import com.jgm90.cloudmusic.core.data.local.CloudMusicDatabase
+import com.jgm90.cloudmusic.core.data.local.dao.SongDao
 import com.jgm90.cloudmusic.core.data.local.entity.SongEntity
 import com.jgm90.cloudmusic.core.model.SongModel
+import javax.inject.Inject
 
-class SongData(context: Context) {
-    private val songDao = CloudMusicDatabase.getInstance(context).songDao()
-
+class SongRepository @Inject constructor(
+    private val songDao: SongDao,
+) {
     suspend fun getById(id: String): SongModel? {
         return songDao.getById(id)?.toModel()
     }
@@ -16,23 +16,23 @@ class SongData(context: Context) {
         return songDao.getAll().map { it.toModel() }
     }
 
-    suspend fun getAllByPlaylist(playlistId: Int): List<SongModel> {
+    suspend fun getByPlaylist(playlistId: Int): List<SongModel> {
         return songDao.getByPlaylist(playlistId).map { it.toModel() }
     }
 
-    suspend fun insert(obj: SongModel) {
-        val id = obj.id ?: return
-        songDao.insert(obj.toEntity(id))
+    suspend fun insert(model: SongModel) {
+        val id = model.id ?: return
+        songDao.insert(model.toEntity(id))
     }
 
-    suspend fun update(obj: SongModel) {
-        val id = obj.id ?: return
-        songDao.update(obj.toEntity(id))
+    suspend fun update(model: SongModel) {
+        val id = model.id ?: return
+        songDao.update(model.toEntity(id))
     }
 
-    suspend fun delete(obj: SongModel) {
-        val id = obj.id ?: return
-        songDao.delete(obj.toEntity(id))
+    suspend fun delete(model: SongModel) {
+        val id = model.id ?: return
+        songDao.delete(model.toEntity(id))
     }
 
     suspend fun getNextPosition(): Int {

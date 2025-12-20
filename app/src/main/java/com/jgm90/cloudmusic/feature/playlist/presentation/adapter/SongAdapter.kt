@@ -18,7 +18,6 @@ import com.afollestad.materialdialogs.DialogAction
 import com.afollestad.materialdialogs.MaterialDialog
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
-import com.jgm90.cloudmusic.feature.playlist.data.SongData
 import com.jgm90.cloudmusic.core.event.DownloadEvent
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.ItemTouchHelperAdapter
@@ -27,11 +26,6 @@ import com.jgm90.cloudmusic.feature.playlist.presentation.contract.OnStartDragLi
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.core.event.AppEventBus
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.Collections
 
 class SongAdapter(
@@ -39,11 +33,11 @@ class SongAdapter(
     private val context: Context,
     private val dialogListener: DialogCaller,
     private val dragListener: OnStartDragListener,
+    private val onSongUpdated: (SongModel) -> Unit,
+    private val onSongDeleted: (SongModel) -> Unit,
 ) : RecyclerView.Adapter<SongAdapter.ViewHolder>(), ItemTouchHelperAdapter {
     private val inflater: LayoutInflater = LayoutInflater.from(context)
-    private val dao: SongData = SongData(context)
     private var selectedItem: SongModel? = null
-    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = inflater.inflate(R.layout.row_search, parent, false)
@@ -62,7 +56,7 @@ class SongAdapter(
             it.position_date = SharedUtils.dateTime
             Log.d("Item", "Position: ${it.position}")
             Log.d("Item", "Position DateTime: ${it.position_date}")
-            ioScope.launch { dao.update(it) }
+            onSongUpdated(it)
         }
         return true
     }
@@ -149,12 +143,8 @@ class SongAdapter(
                 .positiveText("SI")
                 .onPositive(object : MaterialDialog.SingleButtonCallback {
                     override fun onClick(dialog: MaterialDialog, which: DialogAction) {
-                        ioScope.launch {
-                            dao.delete(obj)
-                            withContext(Dispatchers.Main) {
-                                dialogListener.onPositiveCall()
-                            }
-                        }
+                        onSongDeleted(obj)
+                        dialogListener.onPositiveCall()
                     }
                 })
                 .negativeText("NO")

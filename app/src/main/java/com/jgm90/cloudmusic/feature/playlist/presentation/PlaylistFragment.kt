@@ -13,22 +13,21 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.core.view.MenuItemCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.lifecycle.lifecycleScope
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.databinding.FragmentPlaylistBinding
-import com.jgm90.cloudmusic.feature.playlist.presentation.adapter.PlaylistsAdapter
-import com.jgm90.cloudmusic.feature.playlist.data.PlaylistData
-import com.jgm90.cloudmusic.feature.playlist.presentation.dialogs.PlaylistDialog
-import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
-import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
 import com.jgm90.cloudmusic.core.ui.decoration.Divider
 import com.jgm90.cloudmusic.core.util.SharedUtils
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.jgm90.cloudmusic.databinding.FragmentPlaylistBinding
+import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
+import com.jgm90.cloudmusic.feature.playlist.presentation.adapter.PlaylistsAdapter
+import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
+import com.jgm90.cloudmusic.feature.playlist.presentation.dialogs.PlaylistDialog
+import com.jgm90.cloudmusic.feature.playlist.presentation.viewmodel.PlaylistViewModel
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCaller {
     private var _binding: FragmentPlaylistBinding? = null
     private val binding get() = _binding!!
@@ -40,6 +39,7 @@ class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCalle
     private var hostActivity: AppCompatActivity? = null
     private var mLayoutManager: RecyclerView.LayoutManager? = null
     private var searchView: SearchView? = null
+    private val viewModel by viewModels<PlaylistViewModel>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -61,11 +61,9 @@ class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCalle
         if (savedInstanceState != null) {
             listState = savedInstanceState.getParcelable(LIST_STATE_KEY)
             mModel = savedInstanceState.getParcelableArrayList(LIST_ARRAY) ?: ArrayList()
-            hostActivity?.let { activity ->
-                mAdapter = PlaylistsAdapter(mModel, activity, this)
-                binding.rvPlaylists.adapter = mAdapter
-                mAdapter?.notifyDataSetChanged()
-            }
+            mAdapter = PlaylistsAdapter(mModel, requireContext())
+            binding.rvPlaylists.adapter = mAdapter
+            mAdapter?.notifyDataSetChanged()
         }
         return rootView
     }
@@ -103,13 +101,25 @@ class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCalle
     }
 
     private fun getPlaylists() {
-        val dao = PlaylistData(requireContext())
-        viewLifecycleOwner.lifecycleScope.launch {
-            val playlists = withContext(Dispatchers.IO) { dao.getAll() }
+        viewModel.loadPlaylists { playlists ->
             mModel = playlists.toMutableList()
             if (mModel.isNotEmpty()) {
                 hostActivity?.let { activity ->
-                    mAdapter = PlaylistsAdapter(mModel, activity, this@PlaylistFragment)
+                    mAdapter = PlaylistsAdapter(
+                        mModel,
+                        activity,
+                        this@PlaylistFragment,
+                        onDeletePlaylist = { playlist ->
+                            viewModel.deletePlaylist(playlist) { reload() }
+                        },
+                        onEditPlaylist = { playlist ->
+                            PlaylistDialog(
+                                requireContext(),
+                                this@PlaylistFragment,
+                                onSave = { model -> viewModel.savePlaylist(model) { reload() } },
+                            ).cargar(playlist)
+                        },
+                    )
                     binding.rvPlaylists.adapter = mAdapter
                     mAdapter?.notifyItemChanged(0)
                 }
@@ -138,7 +148,11 @@ class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCalle
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == R.id.action_add) {
-            PlaylistDialog(requireContext(), this).show()
+            PlaylistDialog(
+                requireContext(),
+                this,
+                onSave = { model -> viewModel.savePlaylist(model) { reload() } },
+            ).show()
             return true
         }
         return super.onOptionsItemSelected(item)

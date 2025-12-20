@@ -14,41 +14,20 @@ import androidx.recyclerview.widget.RecyclerView
 import com.afollestad.materialdialogs.DialogAction
 import com.afollestad.materialdialogs.MaterialDialog
 import com.jgm90.cloudmusic.R
+import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
 import com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistDetailActivity
-import com.jgm90.cloudmusic.feature.playlist.data.PlaylistData
-import com.jgm90.cloudmusic.feature.playlist.presentation.dialogs.PlaylistDialog
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.ListCaller
-import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-class PlaylistsAdapter private constructor(
+class PlaylistsAdapter(
     private val model: MutableList<PlaylistModel>,
     private val context: Context,
-    private val dialogListener: DialogCaller?,
-    private val listListener: ListCaller?,
+    private val dialogListener: DialogCaller? = null,
+    private val listListener: ListCaller? = null,
+    private val onDeletePlaylist: ((PlaylistModel) -> Unit) = {},
+    private val onEditPlaylist: ((PlaylistModel) -> Unit) = {},
 ) : RecyclerView.Adapter<PlaylistsAdapter.ViewHolder>() {
     private val inflater: LayoutInflater = LayoutInflater.from(context)
-    private val dao: PlaylistData? = dialogListener?.let { PlaylistData(context) }
-    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    constructor(model: MutableList<PlaylistModel>, context: Context, listener: DialogCaller) : this(
-        model = model,
-        context = context,
-        dialogListener = listener,
-        listListener = null,
-    )
-
-    constructor(model: MutableList<PlaylistModel>, context: Context, listener: ListCaller) : this(
-        model = model,
-        context = context,
-        dialogListener = null,
-        listListener = listener,
-    )
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = inflater.inflate(R.layout.row_playlist, parent, false)
@@ -61,7 +40,8 @@ class PlaylistsAdapter private constructor(
 
     override fun getItemCount(): Int = model.size
 
-    inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView), View.OnClickListener {
+    inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView),
+        View.OnClickListener {
         private val lblName: TextView = itemView.findViewById(R.id.lbl_name)
         private val lblSongCount: TextView = itemView.findViewById(R.id.lbl_song_count)
         private val btnMenu: ImageView = itemView.findViewById(R.id.btn_menu)
@@ -97,13 +77,15 @@ class PlaylistsAdapter private constructor(
                 popup.setOnMenuItemClickListener { item: MenuItem ->
                     when (item.itemId) {
                         R.id.playlist_edit -> {
-                            PlaylistDialog(context, dialogListener).cargar(playlist)
+                            onEditPlaylist?.invoke(playlist)
                             true
                         }
+
                         R.id.playlist_delete -> {
                             delete(playlist)
                             true
                         }
+
                         else -> true
                     }
                 }
@@ -131,13 +113,7 @@ class PlaylistsAdapter private constructor(
                 .positiveText("SI")
                 .onPositive(object : MaterialDialog.SingleButtonCallback {
                     override fun onClick(dialog: MaterialDialog, which: DialogAction) {
-                        val playlistDao = dao ?: return
-                        ioScope.launch {
-                            playlistDao.delete(obj)
-                            withContext(Dispatchers.Main) {
-                                dialogListener?.onPositiveCall()
-                            }
-                        }
+                        onDeletePlaylist?.invoke(obj)
                     }
                 })
                 .negativeText("NO")

@@ -157,7 +157,8 @@ private fun MainContent(
     var showChangelogDialog by remember { mutableStateOf(showChangelog) }
     val canNavigateBack =
         destination == HomeDestination.RecentlyPlayed || destination == HomeDestination.LikedSongs
-    val showTopBar = !canNavigateBack
+    var searchExpanded by remember { mutableStateOf(false) }
+    val showTopBar = !canNavigateBack && !(destination == HomeDestination.Search && searchExpanded)
 
     Scaffold(
         topBar = {
@@ -218,7 +219,10 @@ private fun MainContent(
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             when (destination) {
-                HomeDestination.Search -> SearchScreen(onOpenNowPlaying = onOpenNowPlayingWithList)
+                HomeDestination.Search -> SearchScreen(
+                    onOpenNowPlaying = onOpenNowPlayingWithList,
+                    onSearchActiveChange = { searchExpanded = it },
+                )
                 HomeDestination.Library -> LibraryScreen(
                     onOpenRecent = { destination = HomeDestination.RecentlyPlayed },
                     onOpenLiked = { destination = HomeDestination.LikedSongs },

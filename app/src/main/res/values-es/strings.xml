@@ -31,6 +31,10 @@
     <string name="search_message">Busqueda Cloud Music\n Busca tu canción favorita</string>
     <string name="search">Buscar</string>
     <string name="playlists">Playlists</string>
+    <string name="search_hint">Buscar canciones</string>
+    <string name="search_history_title">Busquedas recientes</string>
+    <string name="search_history_clear">Limpiar</string>
+    <string name="search_history_empty">Sin busquedas recientes</string>
     <string name="library">Biblioteca</string>
     <string name="edit">Editar</string>
     <string name="delete">Eliminar</string>

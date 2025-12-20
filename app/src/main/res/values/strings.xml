@@ -35,6 +35,10 @@
 
     <!-- Search messages -->
     <string name="search_message">Search Cloud Music\n Find your favorite song</string>
+    <string name="search_hint">Search songs</string>
+    <string name="search_history_title">Recent searches</string>
+    <string name="search_history_clear">Clear</string>
+    <string name="search_history_empty">No recent searches</string>
 
     <!-- Playlist messages -->
     <string name="no_playlists">No playlists found</string>

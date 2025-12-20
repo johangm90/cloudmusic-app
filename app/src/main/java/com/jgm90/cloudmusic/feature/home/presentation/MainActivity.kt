@@ -8,26 +8,25 @@ import android.os.Environment
 import android.text.Html
 import android.util.Log
 import android.view.MenuItem
-import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.ActionBarDrawerToggle
-import androidx.appcompat.widget.Toolbar
 import androidx.core.view.GravityCompat
-import androidx.drawerlayout.widget.DrawerLayout
-import com.afollestad.materialdialogs.DialogAction
 import com.afollestad.materialdialogs.MaterialDialog
-import com.afollestad.materialdialogs.MaterialDialog.SingleButtonCallback
 import com.google.android.material.navigation.NavigationView
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.DownloadEvent
 import com.jgm90.cloudmusic.core.app.BaseActivity
+import com.jgm90.cloudmusic.databinding.ActivityMainBinding
 import com.jgm90.cloudmusic.feature.search.presentation.SearchFragment
 import com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistFragment
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import androidx.lifecycle.lifecycleScope
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
+import androidx.core.net.toUri
 
+@AndroidEntryPoint
 class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedListener {
     private val SF_TAG = "sf_tag"
     private val PL_TAG = "pl_tag"
@@ -35,26 +34,28 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
     private var playlistFragment: PlaylistFragment? = null
     private var packageInfo: PackageInfo? = null
     private var eventJobs: List<Job> = emptyList()
+    private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.AppTheme_NoActionBar)
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        val toolbar = findViewById<Toolbar?>(R.id.toolbar)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        val toolbar = binding.appBarMain.toolbar
         setSupportActionBar(toolbar)
-        val drawer = findViewById<DrawerLayout>(R.id.drawer_layout)
+        val drawer = binding.drawerLayout
         val toggle = ActionBarDrawerToggle(
             this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close
         )
-        drawer.setDrawerListener(toggle)
+        drawer.addDrawerListener(toggle)
         toggle.syncState()
-        val navigationView = findViewById<NavigationView>(R.id.nav_view)
+        val navigationView = binding.navView
         navigationView.setNavigationItemSelectedListener(this)
         try {
             val headerView = navigationView.inflateHeaderView(R.layout.nav_header_main)
             val lbl_version = headerView.findViewById<TextView>(R.id.lbl_version)
-            packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0)
-            lbl_version.setText("v" + packageInfo!!.versionName)
+            packageInfo = packageManager.getPackageInfo(getPackageName(), 0)
+            lbl_version.text = "v" + packageInfo!!.versionName
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -63,12 +64,12 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
             playlistFragment = PlaylistFragment()
         } else {
             searchFragment =
-                getSupportFragmentManager().findFragmentByTag(SF_TAG) as SearchFragment?
+                supportFragmentManager.findFragmentByTag(SF_TAG) as SearchFragment?
             if (searchFragment == null) {
                 searchFragment = SearchFragment()
             }
             playlistFragment =
-                getSupportFragmentManager().findFragmentByTag(PL_TAG) as PlaylistFragment?
+                supportFragmentManager.findFragmentByTag(PL_TAG) as PlaylistFragment?
             if (playlistFragment == null) {
                 playlistFragment = PlaylistFragment()
             }
@@ -83,11 +84,12 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
                 .content(Html.fromHtml(getString(R.string.changelog)))
                 .cancelable(false)
                 .positiveText("Cerrar")
-                .onPositive(object : SingleButtonCallback {
-                    override fun onClick(dialog: MaterialDialog, which: DialogAction) {
-                        SharedUtils.set_version(this@MainActivity, packageInfo!!.versionName)
-                    }
-                })
+                .onPositive { _, _ ->
+                    SharedUtils.set_version(
+                        this@MainActivity,
+                        packageInfo!!.versionName
+                    )
+                }
                 .contentLineSpacing(1.6f)
                 .show()
         }
@@ -96,7 +98,7 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
     @Deprecated("")
     override fun onBackPressed() {
         super.onBackPressed()
-        val drawer = findViewById<View?>(R.id.drawer_layout) as DrawerLayout
+        val drawer = binding.drawerLayout
         if (drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START)
         } else {
@@ -145,7 +147,7 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
                 .contentLineSpacing(1.6f)
                 .show()
         }
-        val drawer = findViewById<View?>(R.id.drawer_layout) as DrawerLayout
+        val drawer = binding.drawerLayout
         drawer.closeDrawer(GravityCompat.START)
         return true
     }
@@ -182,7 +184,7 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
 
     private fun download(event: DownloadEvent) {
         val downloadManager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
-        val uri = Uri.parse(event.url)
+        val uri = event.url.toUri()
         val request = DownloadManager.Request(uri)
         request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, event.filename)
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)

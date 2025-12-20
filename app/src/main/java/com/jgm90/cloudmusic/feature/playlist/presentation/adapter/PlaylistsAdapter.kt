@@ -20,6 +20,11 @@ import com.jgm90.cloudmusic.feature.playlist.presentation.dialogs.PlaylistDialog
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.ListCaller
 import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class PlaylistsAdapter private constructor(
     private val model: MutableList<PlaylistModel>,
@@ -29,6 +34,7 @@ class PlaylistsAdapter private constructor(
 ) : RecyclerView.Adapter<PlaylistsAdapter.ViewHolder>() {
     private val inflater: LayoutInflater = LayoutInflater.from(context)
     private val dao: PlaylistData? = dialogListener?.let { PlaylistData(context) }
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     constructor(model: MutableList<PlaylistModel>, context: Context, listener: DialogCaller) : this(
         model = model,
@@ -125,8 +131,13 @@ class PlaylistsAdapter private constructor(
                 .positiveText("SI")
                 .onPositive(object : MaterialDialog.SingleButtonCallback {
                     override fun onClick(dialog: MaterialDialog, which: DialogAction) {
-                        dao?.delete(obj)
-                        dialogListener?.onPositiveCall()
+                        val playlistDao = dao ?: return
+                        ioScope.launch {
+                            playlistDao.delete(obj)
+                            withContext(Dispatchers.Main) {
+                                dialogListener?.onPositiveCall()
+                            }
+                        }
                     }
                 })
                 .negativeText("NO")

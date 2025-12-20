@@ -26,10 +26,12 @@ import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.DownloadEvent
 import com.jgm90.cloudmusic.feature.search.presentation.viewmodel.SearchViewModel
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
+import dagger.hilt.android.AndroidEntryPoint
 import io.nubit.cloudmusic.designsystem.component.EmptyState
 import io.nubit.cloudmusic.designsystem.component.Loader
 import io.nubit.cloudmusic.designsystem.component.SongItem
 
+@AndroidEntryPoint
 class SearchFragment : Fragment(), SearchView.OnQueryTextListener {
     private var _binding: FragmentSearchBinding? = null
     private val binding get() = _binding!!

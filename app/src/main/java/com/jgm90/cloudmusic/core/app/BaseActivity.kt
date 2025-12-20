@@ -10,7 +10,6 @@ import android.os.IBinder
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.core.data.local.DbHelper
 import com.jgm90.cloudmusic.feature.playback.presentation.PlaybackControlsFragment
 import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
 
@@ -23,7 +22,6 @@ open class BaseActivity : AppCompatActivity(), ServiceConnection {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         volumeControlStream = AudioManager.STREAM_MUSIC
-        DbHelper.getInstance(this)
         attachService()
     }
 

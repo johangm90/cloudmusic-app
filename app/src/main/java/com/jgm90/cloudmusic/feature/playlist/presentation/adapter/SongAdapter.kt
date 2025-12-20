@@ -27,6 +27,11 @@ import com.jgm90.cloudmusic.feature.playlist.presentation.contract.OnStartDragLi
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.core.event.AppEventBus
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Collections
 
 class SongAdapter(
@@ -38,6 +43,7 @@ class SongAdapter(
     private val inflater: LayoutInflater = LayoutInflater.from(context)
     private val dao: SongData = SongData(context)
     private var selectedItem: SongModel? = null
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = inflater.inflate(R.layout.row_search, parent, false)
@@ -56,7 +62,7 @@ class SongAdapter(
             it.position_date = SharedUtils.dateTime
             Log.d("Item", "Position: ${it.position}")
             Log.d("Item", "Position DateTime: ${it.position_date}")
-            dao.update(it)
+            ioScope.launch { dao.update(it) }
         }
         return true
     }
@@ -143,8 +149,12 @@ class SongAdapter(
                 .positiveText("SI")
                 .onPositive(object : MaterialDialog.SingleButtonCallback {
                     override fun onClick(dialog: MaterialDialog, which: DialogAction) {
-                        dao.delete(obj)
-                        dialogListener.onPositiveCall()
+                        ioScope.launch {
+                            dao.delete(obj)
+                            withContext(Dispatchers.Main) {
+                                dialogListener.onPositiveCall()
+                            }
+                        }
                     }
                 })
                 .negativeText("NO")

@@ -2,7 +2,6 @@ package com.jgm90.cloudmusic.core.network
 
 import com.jgm90.cloudmusic.core.model.LyricModel
 import com.jgm90.cloudmusic.core.model.SongModel
-import retrofit2.Call
 import retrofit2.http.GET
 import retrofit2.http.Path
 
@@ -15,5 +14,5 @@ interface RestInterface {
     ): List<SongModel>
 
     @GET("lyric/{id}")
-    fun getLyrics(@Path("id") id: String?): Call<LyricModel?>
+    suspend fun getLyrics(@Path("id") id: String?): LyricModel?
 }

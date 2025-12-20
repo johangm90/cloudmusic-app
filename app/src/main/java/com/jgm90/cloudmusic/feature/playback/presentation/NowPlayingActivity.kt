@@ -32,6 +32,7 @@ import com.jgm90.cloudmusic.GlideApp
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.app.BaseActivity
 import com.jgm90.cloudmusic.core.event.AppEventBus
+import com.jgm90.cloudmusic.core.network.RestInterface
 import com.jgm90.cloudmusic.databinding.ActivityNowPlayingBinding
 import com.jgm90.cloudmusic.feature.playback.presentation.adapter.InfinitePagerAdapter
 import com.jgm90.cloudmusic.feature.playback.presentation.adapter.SlidePagerAdapter
@@ -48,9 +49,18 @@ import com.jgm90.cloudmusic.core.playback.PlaybackMode
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.feature.playback.presentation.widget.CMViewPager
 import com.jgm90.cloudmusic.feature.playback.presentation.widget.PlayPauseDrawable
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+@AndroidEntryPoint
 class NowPlayingActivity : BaseActivity() {
+    @Inject
+    lateinit var restInterface: RestInterface
+
     private lateinit var binding: ActivityNowPlayingBinding
     var pager: CMViewPager? = null
     var songtitle: TextView? = null
@@ -65,8 +75,7 @@ class NowPlayingActivity : BaseActivity() {
     var repeat: ImageView? = null
     var header_view: CoordinatorLayout? = null
 
-    var song_call: retrofit2.Call<List<SongModel>>? = null
-    var lyrics_call: retrofit2.Call<LyricModel?>? = null
+    private var lyricsJob: Job? = null
 
     private val updateProgress = object : Runnable {
         override fun run() {
@@ -323,7 +332,7 @@ class NowPlayingActivity : BaseActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        song_call?.cancel()
+        lyricsJob?.cancel()
         progressHandler.removeCallbacks(updateProgress)
         lyricsHandler.removeCallbacks(updateLyrics)
         unbindService(serviceConnection)
@@ -390,35 +399,30 @@ class NowPlayingActivity : BaseActivity() {
                     lyricsView?.visibility = View.VISIBLE
                 }
             } else {
-                val api = com.jgm90.cloudmusic.core.network.RestClient.build(SharedUtils.server)
-                lyrics_call = api.getLyrics(id)
-                lyrics_call?.enqueue(object : retrofit2.Callback<LyricModel?> {
-                    override fun onResponse(
-                        call: retrofit2.Call<LyricModel?>,
-                        response: retrofit2.Response<LyricModel?>,
-                    ) {
-                        if (response.isSuccessful) {
-                            lyricModel = response.body()
-                            if (!lyricModel?.lyric.isNullOrEmpty()) {
-                                Log.i("Lyrics", lyricModel?.lyric.orEmpty())
-                                lyricModel?.lyric?.let { lrc ->
-                                    lyrics = Lyrics.parse(lrc)
-                                }
-                                lyricsHandler.postDelayed(updateLyrics, 10)
-                            } else {
-                                currentLine?.text = "No lyrics found"
-                                nextLine?.text = ""
-                            }
-                            lyricsView?.visibility = View.VISIBLE
-                        } else {
-                            Log.e("App", "Bad response")
+                lyricsJob?.cancel()
+                lyricsJob = lifecycleScope.launch {
+                    val response = runCatching {
+                        withContext(Dispatchers.IO) {
+                            restInterface.getLyrics(id)
                         }
                     }
-
-                    override fun onFailure(call: retrofit2.Call<LyricModel?>, t: Throwable) {
+                    response.onSuccess { lyric ->
+                        lyricModel = lyric
+                        if (!lyricModel?.lyric.isNullOrEmpty()) {
+                            Log.i("Lyrics", lyricModel?.lyric.orEmpty())
+                            lyricModel?.lyric?.let { lrc ->
+                                lyrics = Lyrics.parse(lrc)
+                            }
+                            lyricsHandler.postDelayed(updateLyrics, 10)
+                        } else {
+                            currentLine?.text = "No lyrics found"
+                            nextLine?.text = ""
+                        }
+                        lyricsView?.visibility = View.VISIBLE
+                    }.onFailure {
                         Log.e("App", "Fail to get lyrics")
                     }
-                })
+                }
             }
         }
     }

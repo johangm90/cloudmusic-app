@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.app.BaseActivity
+import com.jgm90.cloudmusic.core.network.RestInterface
 import com.jgm90.cloudmusic.databinding.ActivityPlaylistDetailBinding
 import com.jgm90.cloudmusic.feature.playlist.presentation.adapter.SongAdapter
 import com.jgm90.cloudmusic.feature.playlist.data.PlaylistData
@@ -20,28 +21,28 @@ import com.jgm90.cloudmusic.feature.playlist.data.SongData
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.OnStartDragListener
 import com.jgm90.cloudmusic.feature.playlist.presentation.listener.ItemTouchCallback
-import com.jgm90.cloudmusic.core.model.LyricModel
 import com.jgm90.cloudmusic.core.model.SongModel
-import com.jgm90.cloudmusic.core.data.local.table.SongsTable
 import com.jgm90.cloudmusic.core.ui.decoration.Divider
-import com.jgm90.cloudmusic.core.network.RestClient
 import com.jgm90.cloudmusic.core.util.SharedUtils
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 
+@AndroidEntryPoint
 class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener {
     private lateinit var binding: ActivityPlaylistDetailBinding
     private val contentBinding get() = binding.playlistDetail
+    @Inject
+    lateinit var restInterface: RestInterface
     var search_query: String? = null
     var listState: Parcelable? = null
     private var mAdapter: SongAdapter? = null
@@ -92,43 +93,48 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
             }
         }
         contentBinding.sbOffline.setOnCheckedChangeListener(object : CompoundButton.OnCheckedChangeListener {
-            override fun onCheckedChanged(compoundButton: CompoundButton?, b: Boolean) {
-                val dao = PlaylistData(applicationContext)
-                val playlist = dao.getOne("playlist_id=$id") ?: return
-                if (b) {
-                    playlist.offline = 1
-                    dao.update(playlist)
-                    downloadPlaylist()
-                } else {
-                    playlist.offline = 0
-                    dao.update(playlist)
+            override fun onCheckedChanged(buttonView: CompoundButton, b: Boolean) {
+                val playlistDao = PlaylistData(applicationContext)
+                CoroutineScope(Dispatchers.IO).launch {
+                    val playlist = playlistDao.getById(id) ?: return@launch
+                    if (b) {
+                        playlist.offline = 1
+                        playlistDao.update(playlist)
+                        downloadPlaylist()
+                    } else {
+                        playlist.offline = 0
+                        playlistDao.update(playlist)
+                    }
                 }
             }
         })
     }
 
     private fun downloadPlaylist() {
-        val songs = dao!!.getAllFilter(SongsTable.COL_PLAYLIST_ID + "=" + id)
-        if (songs.isNotEmpty()) {
-            for (i in songs.indices) {
-                if (!TextUtils.isEmpty(songs[i].local_file)) {
-                    val song = File(songs[i].local_file)
-                    if (!song.exists()) {
-                        downloadSong(songs[i])
+        val localDao = dao ?: return
+        CoroutineScope(Dispatchers.IO).launch {
+            val songs = localDao.getAllByPlaylist(id)
+            if (songs.isNotEmpty()) {
+                for (song in songs) {
+                    if (!TextUtils.isEmpty(song.local_file)) {
+                        val file = File(song.local_file.orEmpty())
+                        if (!file.exists()) {
+                            downloadSong(song)
+                        }
+                    } else {
+                        downloadSong(song)
                     }
-                } else {
-                    downloadSong(songs[i])
-                }
-                if (!TextUtils.isEmpty(songs[i].local_thumbnail)) {
-                    val thumbnail = File(songs[i].local_thumbnail)
-                    if (!thumbnail.exists()) {
-                        downloadThumbnail(songs[i])
+                    if (!TextUtils.isEmpty(song.local_thumbnail)) {
+                        val thumbnail = File(song.local_thumbnail.orEmpty())
+                        if (!thumbnail.exists()) {
+                            downloadThumbnail(song)
+                        }
+                    } else {
+                        downloadThumbnail(song)
                     }
-                } else {
-                    downloadThumbnail(songs[i])
-                }
-                if (TextUtils.isEmpty(songs[i].local_lyric)) {
-                    downloadLyric(songs[i])
+                    if (TextUtils.isEmpty(song.local_lyric)) {
+                        downloadLyric(song)
+                    }
                 }
             }
         }
@@ -161,7 +167,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
                 outputStream.close()
                 inputStream.close()
                 song.local_file = directory.absolutePath + "/" + filename
-                dao!!.update(song)
+                dao?.update(song)
             } else {
                 Log.e("App", "Failed to download song(${song.name}): ${response.code}")
             }
@@ -195,7 +201,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
                 outputStream.close()
                 inputStream.close()
                 song.local_thumbnail = directory.absolutePath + "/" + filename
-                dao!!.update(song)
+                dao?.update(song)
             } else {
                 Log.e("App", "Failed to download cover(${song.name}): ${response.code}")
             }
@@ -203,23 +209,20 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
     }
 
     fun downloadLyric(song: SongModel) {
-        val api = RestClient.build(SharedUtils.server)
-        var lyrics_call: Call<LyricModel?>
-        lyrics_call = api.getLyrics(song.lyric_id)
-        lyrics_call.enqueue(object : Callback<LyricModel?> {
-            override fun onResponse(call: Call<LyricModel?>?, response: Response<LyricModel?>?) {
-                if (response!!.isSuccessful) {
-                    song.local_lyric = response.body()!!.lyric
-                    dao!!.update(song)
-                } else {
-                    Log.e("App", "Bad response")
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { restInterface.getLyrics(song.lyric_id) }
+                .onSuccess { lyric ->
+                    if (!lyric?.lyric.isNullOrEmpty()) {
+                        song.local_lyric = lyric.lyric
+                        dao?.update(song)
+                    } else {
+                        Log.e("App", "Bad response")
+                    }
                 }
-            }
-
-            override fun onFailure(call: Call<LyricModel?>?, t: Throwable?) {
-                Log.e("App", "Fail to get lyrics")
-            }
-        })
+                .onFailure {
+                    Log.e("App", "Fail to get lyrics")
+                }
+        }
     }
 
     private fun setUpTouch() {
@@ -238,29 +241,30 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
 
     fun reload(id: Int) {
         contentBinding.messageView.visibility = View.GONE
-        mModel!!.clear()
+        mModel?.clear()
         contentBinding.rvPlaylist.adapter = null
         getSongs(id)
     }
 
     fun getSongs(id: Int) {
-        try {
-            val model = dao!!.getAllFilter(SongsTable.COL_PLAYLIST_ID + "=" + id).toMutableList()
-            mModel = model
-            if (model.isNotEmpty()) {
-                mAdapter = SongAdapter(model, this, this, this)
-                contentBinding.rvPlaylist.adapter = mAdapter
-                mAdapter!!.notifyItemChanged(0)
-                setUpTouch()
-            } else {
-                SharedUtils.showMessage(
-                    contentBinding.messageView,
-                    R.drawable.ic_info_black_24dp,
-                    R.string.no_songs
-                )
+        val localDao = dao ?: return
+        CoroutineScope(Dispatchers.IO).launch {
+            val model = localDao.getAllByPlaylist(id).toMutableList()
+            withContext(Dispatchers.Main) {
+                mModel = model
+                if (model.isNotEmpty()) {
+                    mAdapter = SongAdapter(model, this@PlaylistDetailActivity, this@PlaylistDetailActivity, this@PlaylistDetailActivity)
+                    contentBinding.rvPlaylist.adapter = mAdapter
+                    mAdapter!!.notifyItemChanged(0)
+                    setUpTouch()
+                } else {
+                    SharedUtils.showMessage(
+                        contentBinding.messageView,
+                        R.drawable.ic_info_black_24dp,
+                        R.string.no_songs
+                    )
+                }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 

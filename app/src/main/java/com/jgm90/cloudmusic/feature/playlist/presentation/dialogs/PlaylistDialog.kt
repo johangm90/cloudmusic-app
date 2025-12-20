@@ -1,27 +1,31 @@
 package com.jgm90.cloudmusic.feature.playlist.presentation.dialogs
 
 import android.content.Context
-import android.view.View
-import android.widget.EditText
+import android.view.LayoutInflater
 import com.afollestad.materialdialogs.DialogAction
 import com.afollestad.materialdialogs.MaterialDialog
-import com.jgm90.cloudmusic.R
+import com.jgm90.cloudmusic.databinding.DialogNewPlaylistBinding
 import com.jgm90.cloudmusic.feature.playlist.data.PlaylistData
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
 import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class PlaylistDialog(private val context: Context, private val listener: DialogCaller?) {
     private val dao: PlaylistData = PlaylistData(context)
     private var dialog: MaterialDialog? = null
-    private var dialogView: View? = null
-    private var txtPlaylistName: EditText? = null
+    private var binding: DialogNewPlaylistBinding? = null
     private var obj: PlaylistModel? = null
     private var cargado = false
+    private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     fun show() {
+        binding = DialogNewPlaylistBinding.inflate(LayoutInflater.from(context))
         val dialogBuilder = MaterialDialog.Builder(context)
             .title("Playlist")
-            .customView(R.layout.dialog_new_playlist, false)
+            .customView(binding!!.root, false)
             .cancelable(false)
             .autoDismiss(false)
             .positiveText("OK")
@@ -29,9 +33,11 @@ class PlaylistDialog(private val context: Context, private val listener: DialogC
             .onPositive(object : MaterialDialog.SingleButtonCallback {
                 override fun onClick(dialog: MaterialDialog, which: DialogAction) {
                     if (validate()) {
-                        guardar()
-                        dialog.dismiss()
-                        listener?.onPositiveCall()
+                        uiScope.launch {
+                            guardar()
+                            dialog.dismiss()
+                            listener?.onPositiveCall()
+                        }
                     }
                 }
             })
@@ -42,25 +48,23 @@ class PlaylistDialog(private val context: Context, private val listener: DialogC
             })
         dialog = dialogBuilder.build()
         dialog?.show()
-        dialogView = dialog?.customView
         bind()
     }
 
     private fun bind() {
-        txtPlaylistName = dialogView?.findViewById(R.id.txt_playlist_name)
         if (cargado) {
-            txtPlaylistName?.setText(obj?.name)
+            binding?.txtPlaylistName?.setText(obj?.name)
         }
     }
 
     private fun validate(): Boolean {
-        return !txtPlaylistName?.text.isNullOrEmpty()
+        return !binding?.txtPlaylistName?.text.isNullOrEmpty()
     }
 
-    private fun guardar() {
+    private suspend fun guardar() {
         val item = PlaylistModel(
             0,
-            txtPlaylistName?.text?.toString().orEmpty(),
+            binding?.txtPlaylistName?.text?.toString().orEmpty(),
             0,
         )
         if (cargado) {

@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -80,7 +78,6 @@ fun EmptyState(
 @Composable
 fun EmptyStatePreview() {
     EmptyState(
-        text = "No data available",
-        imageVector = Icons.Default.Info
+        text = "No data available"
     )
 }

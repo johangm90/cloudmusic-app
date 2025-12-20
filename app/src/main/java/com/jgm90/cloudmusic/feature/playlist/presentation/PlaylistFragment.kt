@@ -15,6 +15,7 @@ import androidx.core.view.MenuItemCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.lifecycle.lifecycleScope
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.databinding.FragmentPlaylistBinding
 import com.jgm90.cloudmusic.feature.playlist.presentation.adapter.PlaylistsAdapter
@@ -24,6 +25,9 @@ import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
 import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
 import com.jgm90.cloudmusic.core.ui.decoration.Divider
 import com.jgm90.cloudmusic.core.util.SharedUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCaller {
     private var _binding: FragmentPlaylistBinding? = null
@@ -99,12 +103,13 @@ class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCalle
     }
 
     private fun getPlaylists() {
-        try {
-            val dao = PlaylistData(requireContext())
-            mModel = dao.getAll().toMutableList()
+        val dao = PlaylistData(requireContext())
+        viewLifecycleOwner.lifecycleScope.launch {
+            val playlists = withContext(Dispatchers.IO) { dao.getAll() }
+            mModel = playlists.toMutableList()
             if (mModel.isNotEmpty()) {
                 hostActivity?.let { activity ->
-                    mAdapter = PlaylistsAdapter(mModel, activity, this)
+                    mAdapter = PlaylistsAdapter(mModel, activity, this@PlaylistFragment)
                     binding.rvPlaylists.adapter = mAdapter
                     mAdapter?.notifyItemChanged(0)
                 }
@@ -115,8 +120,6 @@ class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCalle
                     R.string.no_playlists,
                 )
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 

@@ -2,13 +2,11 @@ package com.jgm90.cloudmusic.feature.playlist.model
 
 import android.os.Parcel
 import android.os.Parcelable
-import com.jgm90.cloudmusic.core.data.contract.DataColumn
-
 class PlaylistModel(
-    @field:DataColumn var playlist_id: Int,
-    @field:DataColumn var name: String,
+    var playlist_id: Int,
+    var name: String,
     var song_count: Int,
-    @field:DataColumn var offline: Int,
+    var offline: Int,
 ) : Parcelable {
     constructor(playlist_id: Int, name: String, offline: Int) : this(
         playlist_id = playlist_id,

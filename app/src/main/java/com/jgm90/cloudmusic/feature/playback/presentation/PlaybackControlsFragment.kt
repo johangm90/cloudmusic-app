@@ -19,6 +19,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.jgm90.cloudmusic.GlideApp
 import com.jgm90.cloudmusic.R
+import com.jgm90.cloudmusic.databinding.FragmentPlaybackControlsBinding
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.IsPlayingEvent
 import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
@@ -31,6 +32,8 @@ class PlaybackControlsFragment : Fragment() {
         AppEventBus.post(PlayPauseEvent("From Playback Controls Fragment"))
     }
 
+    private var _binding: FragmentPlaybackControlsBinding? = null
+    private val binding get() = _binding!!
     private lateinit var playPause: ImageButton
     private lateinit var title: TextView
     private lateinit var subtitle: TextView
@@ -60,14 +63,15 @@ class PlaybackControlsFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View {
-        val rootView = inflater.inflate(R.layout.fragment_playback_controls, container, false)
-        playPause = rootView.findViewById(R.id.play_pause)
+        _binding = FragmentPlaybackControlsBinding.inflate(inflater, container, false)
+        val rootView = binding.root
+        playPause = binding.playPause
         playPause.isEnabled = true
         playPause.setOnClickListener(buttonListener)
-        title = rootView.findViewById(R.id.title)
-        subtitle = rootView.findViewById(R.id.artist)
-        extraInfo = rootView.findViewById(R.id.extra_info)
-        albumArt = rootView.findViewById(R.id.album_art)
+        title = binding.title
+        subtitle = binding.artist
+        extraInfo = binding.extraInfo
+        albumArt = binding.albumArt
         title.isSelected = true
         rootView.setOnClickListener {
             val intent = Intent(activity, NowPlayingActivity::class.java)
@@ -98,6 +102,11 @@ class PlaybackControlsFragment : Fragment() {
         controller?.unregisterCallback(callback)
         eventJobs.forEach { it.cancel() }
         eventJobs = emptyList()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 
     private fun onConnected() {

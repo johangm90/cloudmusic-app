@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.compose.compiler)
     kotlin("kapt")
-    id("com.jakewharton.butterknife")
 }
 
 android {
@@ -59,8 +58,6 @@ dependencies {
     implementation("com.afollestad.material-dialogs:core:0.9.6.0")
     implementation("org.greenrobot:eventbus:3.0.0")
     implementation("com.karumi:dexter:5.0.0")
-    implementation("com.jakewharton:butterknife:10.2.3")
-    kapt("com.jakewharton:butterknife-compiler:10.2.3")
     implementation("com.github.bumptech.glide:glide:4.10.0")
     kapt("com.github.bumptech.glide:compiler:4.10.0")
     implementation("androidx.core:core-ktx:1.15.0")

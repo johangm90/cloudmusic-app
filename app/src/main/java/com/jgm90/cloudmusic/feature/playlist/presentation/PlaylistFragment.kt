@@ -15,12 +15,8 @@ import androidx.core.view.MenuItemCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import butterknife.BindView
-import butterknife.ButterKnife
-import butterknife.OnClick
-import butterknife.Unbinder
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.R2
+import com.jgm90.cloudmusic.databinding.FragmentPlaylistBinding
 import com.jgm90.cloudmusic.feature.playlist.presentation.adapter.PlaylistsAdapter
 import com.jgm90.cloudmusic.feature.playlist.data.PlaylistData
 import com.jgm90.cloudmusic.feature.playlist.presentation.dialogs.PlaylistDialog
@@ -28,16 +24,10 @@ import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
 import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
 import com.jgm90.cloudmusic.core.ui.decoration.Divider
 import com.jgm90.cloudmusic.core.util.SharedUtils
-import com.jgm90.cloudmusic.core.ui.widget.VulgryMessageView
 
 class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCaller {
-    @JvmField
-    @BindView(R2.id.message_view)
-    var message_view: VulgryMessageView? = null
-
-    @JvmField
-    @BindView(R2.id.rv_playlists)
-    var mRecyclerView: RecyclerView? = null
+    private var _binding: FragmentPlaylistBinding? = null
+    private val binding get() = _binding!!
 
     var search_query: String? = null
     private var listState: Parcelable? = null
@@ -45,7 +35,6 @@ class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCalle
     private var mModel: MutableList<PlaylistModel> = mutableListOf()
     private var hostActivity: AppCompatActivity? = null
     private var mLayoutManager: RecyclerView.LayoutManager? = null
-    private var unbinder: Unbinder? = null
     private var searchView: SearchView? = null
 
     override fun onCreateView(
@@ -53,15 +42,16 @@ class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCalle
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View? {
-        val rootView = inflater.inflate(R.layout.fragment_playlist, container, false)
+        _binding = FragmentPlaylistBinding.inflate(inflater, container, false)
+        val rootView = binding.root
         hostActivity = activity as? AppCompatActivity
-        unbinder = ButterKnife.bind(this, rootView)
         mLayoutManager = LinearLayoutManager(hostActivity)
-        mRecyclerView?.layoutManager = mLayoutManager
-        mRecyclerView?.setHasFixedSize(true)
-        mRecyclerView?.addItemDecoration(Divider(requireContext()))
-        mRecyclerView?.itemAnimator?.addDuration = SharedUtils.rv_anim_duration.toLong()
-        mRecyclerView?.adapter = null
+        binding.rvPlaylists.layoutManager = mLayoutManager
+        binding.rvPlaylists.setHasFixedSize(true)
+        binding.rvPlaylists.addItemDecoration(Divider(requireContext()))
+        binding.rvPlaylists.itemAnimator?.addDuration = SharedUtils.rv_anim_duration.toLong()
+        binding.rvPlaylists.adapter = null
+        binding.messageView.setOnClickListener { reload() }
         mModel = ArrayList()
         setHasOptionsMenu(true)
         if (savedInstanceState != null) {
@@ -69,7 +59,7 @@ class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCalle
             mModel = savedInstanceState.getParcelableArrayList(LIST_ARRAY) ?: ArrayList()
             hostActivity?.let { activity ->
                 mAdapter = PlaylistsAdapter(mModel, activity, this)
-                mRecyclerView?.adapter = mAdapter
+                binding.rvPlaylists.adapter = mAdapter
                 mAdapter?.notifyDataSetChanged()
             }
         }
@@ -96,11 +86,15 @@ class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCalle
         }
     }
 
-    @OnClick(R2.id.message_view)
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+
     fun reload() {
-        message_view?.visibility = View.GONE
+        binding.messageView.visibility = View.GONE
         mModel.clear()
-        mRecyclerView?.adapter = null
+        binding.rvPlaylists.adapter = null
         getPlaylists()
     }
 
@@ -111,12 +105,12 @@ class PlaylistFragment : Fragment(), SearchView.OnQueryTextListener, DialogCalle
             if (mModel.isNotEmpty()) {
                 hostActivity?.let { activity ->
                     mAdapter = PlaylistsAdapter(mModel, activity, this)
-                    mRecyclerView?.adapter = mAdapter
+                    binding.rvPlaylists.adapter = mAdapter
                     mAdapter?.notifyItemChanged(0)
                 }
             } else {
                 SharedUtils.showMessage(
-                    message_view,
+                    binding.messageView,
                     R.drawable.ic_library_music_black_24dp,
                     R.string.no_playlists,
                 )

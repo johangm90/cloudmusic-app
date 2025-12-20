@@ -11,12 +11,9 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.widget.PopupMenu
 import androidx.recyclerview.widget.RecyclerView
-import butterknife.BindView
-import butterknife.ButterKnife
 import com.afollestad.materialdialogs.DialogAction
 import com.afollestad.materialdialogs.MaterialDialog
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.R2
 import com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistDetailActivity
 import com.jgm90.cloudmusic.feature.playlist.data.PlaylistData
 import com.jgm90.cloudmusic.feature.playlist.presentation.dialogs.PlaylistDialog
@@ -59,35 +56,26 @@ class PlaylistsAdapter private constructor(
     override fun getItemCount(): Int = model.size
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView), View.OnClickListener {
-        @JvmField
-        @BindView(R2.id.lbl_name)
-        var lblName: TextView? = null
-
-        @JvmField
-        @BindView(R2.id.lbl_song_count)
-        var lblSongCount: TextView? = null
-
-        @JvmField
-        @BindView(R2.id.btn_menu)
-        var btnMenu: ImageView? = null
+        private val lblName: TextView = itemView.findViewById(R.id.lbl_name)
+        private val lblSongCount: TextView = itemView.findViewById(R.id.lbl_song_count)
+        private val btnMenu: ImageView = itemView.findViewById(R.id.btn_menu)
 
         init {
-            ButterKnife.bind(this, itemView)
             itemView.setOnClickListener(this)
-            btnMenu?.setOnClickListener(this)
+            btnMenu.setOnClickListener(this)
         }
 
         fun bind(item: PlaylistModel) {
-            lblName?.text = item.name
+            lblName.text = item.name
             val res: Resources = context.resources
             val songsFound = res.getQuantityString(
                 R.plurals.playlist_messages,
                 item.song_count,
                 item.song_count,
             )
-            lblSongCount?.text = songsFound
+            lblSongCount.text = songsFound
             if (listListener != null) {
-                btnMenu?.visibility = View.INVISIBLE
+                btnMenu.visibility = View.INVISIBLE
             }
         }
 
@@ -97,7 +85,7 @@ class PlaylistsAdapter private constructor(
                 return
             }
             val playlist = model[position]
-            if (v.id == btnMenu?.id) {
+            if (v.id == btnMenu.id) {
                 val popup = PopupMenu(v.context, v)
                 popup.inflate(R.menu.menu_playlist)
                 popup.setOnMenuItemClickListener { item: MenuItem ->

@@ -14,12 +14,9 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.widget.PopupMenu
 import androidx.recyclerview.widget.RecyclerView
-import butterknife.BindView
-import butterknife.ButterKnife
 import com.afollestad.materialdialogs.DialogAction
 import com.afollestad.materialdialogs.MaterialDialog
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.R2
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
 import com.jgm90.cloudmusic.feature.playlist.data.SongData
 import com.jgm90.cloudmusic.core.event.DownloadEvent
@@ -76,27 +73,18 @@ class SongAdapter(
         View.OnClickListener,
         View.OnLongClickListener,
         ItemTouchHelperViewHolder {
-        @JvmField
-        @BindView(R2.id.lbl_title)
-        var lblTitle: TextView? = null
-
-        @JvmField
-        @BindView(R2.id.lbl_subtitle)
-        var lblSubtitle: TextView? = null
-
-        @JvmField
-        @BindView(R2.id.btn_menu)
-        var btnMenu: ImageView? = null
+        private val lblTitle: TextView = itemView.findViewById(R.id.lbl_title)
+        private val lblSubtitle: TextView = itemView.findViewById(R.id.lbl_subtitle)
+        private val btnMenu: ImageView = itemView.findViewById(R.id.btn_menu)
 
         init {
-            ButterKnife.bind(this, itemView)
             itemView.setOnClickListener(this)
-            btnMenu?.setOnClickListener(this)
+            btnMenu.setOnClickListener(this)
         }
 
         fun bind(item: SongModel) {
-            lblTitle?.text = item.name
-            lblSubtitle?.text = TextUtils.join(",", item.artist)
+            lblTitle.text = item.name
+            lblSubtitle.text = TextUtils.join(",", item.artist)
         }
 
         override fun onClick(v: View) {
@@ -105,7 +93,7 @@ class SongAdapter(
                 return
             }
             val song = model[position]
-            if (v.id == btnMenu?.id) {
+            if (v.id == btnMenu.id) {
                 val popup = PopupMenu(v.context, v)
                 popup.inflate(R.menu.menu_playlist_item)
                 popup.setOnMenuItemClickListener { item: MenuItem ->

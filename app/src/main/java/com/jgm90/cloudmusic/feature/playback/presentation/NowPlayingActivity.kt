@@ -24,16 +24,13 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
 import androidx.palette.graphics.Palette
 import androidx.viewpager.widget.ViewPager
-import butterknife.BindView
-import butterknife.ButterKnife
-import butterknife.OnClick
 import com.bumptech.glide.request.target.SimpleTarget
 import com.bumptech.glide.request.transition.Transition
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.jgm90.cloudmusic.GlideApp
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.R2
 import com.jgm90.cloudmusic.core.app.BaseActivity
+import com.jgm90.cloudmusic.databinding.ActivityNowPlayingBinding
 import com.jgm90.cloudmusic.feature.playback.presentation.adapter.InfinitePagerAdapter
 import com.jgm90.cloudmusic.feature.playback.presentation.adapter.SlidePagerAdapter
 import com.jgm90.cloudmusic.core.event.IsPlayingEvent
@@ -54,52 +51,18 @@ import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 
 class NowPlayingActivity : BaseActivity() {
-    @JvmField
-    @BindView(R2.id.pager)
+    private lateinit var binding: ActivityNowPlayingBinding
     var pager: CMViewPager? = null
-
-    @JvmField
-    @BindView(R2.id.song_title)
     var songtitle: TextView? = null
-
-    @JvmField
-    @BindView(R2.id.song_artist)
     var songartist: TextView? = null
-
-    @JvmField
-    @BindView(R2.id.song_progress)
     var mProgress: SeekBar? = null
-
-    @JvmField
-    @BindView(R2.id.song_elapsed_time)
     var elapsedtime: TextView? = null
-
-    @JvmField
-    @BindView(R2.id.song_duration)
     var songduration: TextView? = null
-
-    @JvmField
-    @BindView(R2.id.shuffle)
     var shuffle: ImageView? = null
-
-    @JvmField
-    @BindView(R2.id.previous)
     var previous: ImageView? = null
-
-    @JvmField
-    @BindView(R2.id.playpausefloating)
     var playPauseFloating: FloatingActionButton? = null
-
-    @JvmField
-    @BindView(R2.id.next)
     var next: ImageView? = null
-
-    @JvmField
-    @BindView(R2.id.repeat)
     var repeat: ImageView? = null
-
-    @JvmField
-    @BindView(R2.id.headerViewA)
     var header_view: CoordinatorLayout? = null
 
     var song_call: retrofit2.Call<List<SongModel>>? = null
@@ -195,9 +158,26 @@ class NowPlayingActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_now_playing)
+        binding = ActivityNowPlayingBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        pager = binding.pager
+        songtitle = binding.songTitle
+        songartist = binding.songArtist
+        mProgress = binding.songProgress
+        elapsedtime = binding.songElapsedTime
+        songduration = binding.songDuration
+        shuffle = binding.shuffle
+        previous = binding.previous
+        playPauseFloating = binding.playpausefloating
+        next = binding.next
+        repeat = binding.repeat
+        header_view = binding.headerViewA
         setupToolbar()
-        ButterKnife.bind(this)
+        binding.playpausefloating.setOnClickListener { playOrPause() }
+        binding.previous.setOnClickListener { skipToPrevious() }
+        binding.next.setOnClickListener { skipToNext() }
+        binding.shuffle.setOnClickListener { setShuffle() }
+        binding.repeat.setOnClickListener { setRepeatMode() }
         val extras = intent.extras
         mainHandler = Handler()
         progressHandler = Handler()
@@ -280,7 +260,7 @@ class NowPlayingActivity : BaseActivity() {
     }
 
     private fun setupToolbar() {
-        val toolbar = findViewById<Toolbar?>(R.id.toolbar)
+        val toolbar = binding.toolbar
         if (toolbar != null) {
             setSupportActionBar(toolbar)
             val ab: ActionBar? = supportActionBar
@@ -319,7 +299,6 @@ class NowPlayingActivity : BaseActivity() {
         currentLine?.startAnimation(animation)
     }
 
-    @OnClick(R2.id.playpausefloating)
     fun playOrPause() {
         mainHandler.postDelayed({
             player_service?.eventPlayOrPause(PlayPauseEvent("From Now Playing Activity"))
@@ -502,7 +481,6 @@ class NowPlayingActivity : BaseActivity() {
         setSeekBarListener()
     }
 
-    @OnClick(R2.id.previous)
     fun skipToPrevious() {
         mainHandler.postDelayed({
             player_service?.skipToPrevious()
@@ -518,7 +496,6 @@ class NowPlayingActivity : BaseActivity() {
         }, 200)
     }
 
-    @OnClick(R2.id.next)
     fun skipToNext() {
         mainHandler.postDelayed({
             player_service?.skipToNext()
@@ -536,7 +513,6 @@ class NowPlayingActivity : BaseActivity() {
         }, 200)
     }
 
-    @OnClick(R2.id.shuffle)
     fun setShuffle() {
         if (SharedUtils.getShuffle(this)) {
             shuffle?.alpha = 0.4f
@@ -547,7 +523,6 @@ class NowPlayingActivity : BaseActivity() {
         }
     }
 
-    @OnClick(R2.id.repeat)
     fun setRepeatMode() {
         when (SharedUtils.getRepeatMode(this)) {
             PlaybackMode.NORMAL -> {

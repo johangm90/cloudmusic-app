@@ -7,19 +7,13 @@ import android.util.Log
 import android.view.MenuItem
 import android.view.View
 import android.widget.CompoundButton
-import android.widget.RelativeLayout
-import androidx.appcompat.widget.SearchView
-import androidx.appcompat.widget.SwitchCompat
 import androidx.appcompat.widget.Toolbar
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import butterknife.BindView
-import butterknife.ButterKnife
-import butterknife.Unbinder
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.R2
 import com.jgm90.cloudmusic.core.app.BaseActivity
+import com.jgm90.cloudmusic.databinding.ActivityPlaylistDetailBinding
 import com.jgm90.cloudmusic.feature.playlist.presentation.adapter.SongAdapter
 import com.jgm90.cloudmusic.feature.playlist.data.PlaylistData
 import com.jgm90.cloudmusic.feature.playlist.data.SongData
@@ -32,7 +26,6 @@ import com.jgm90.cloudmusic.core.data.local.table.SongsTable
 import com.jgm90.cloudmusic.core.ui.decoration.Divider
 import com.jgm90.cloudmusic.core.network.RestClient
 import com.jgm90.cloudmusic.core.util.SharedUtils
-import com.jgm90.cloudmusic.core.ui.widget.VulgryMessageView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -47,30 +40,14 @@ import java.io.InputStream
 import java.io.OutputStream
 
 class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener {
-    @JvmField
-    @BindView(R2.id.message_view)
-    var message_view: VulgryMessageView? = null
-
-    @JvmField
-    @BindView(R2.id.rv_playlist)
-    var mRecyclerView: RecyclerView? = null
-
-    @JvmField
-    @BindView(R2.id.rl_offline)
-    var offlineContainer: RelativeLayout? = null
-
-    @JvmField
-    @BindView(R2.id.sb_offline)
-    var switchOffline: SwitchCompat? = null
+    private lateinit var binding: ActivityPlaylistDetailBinding
+    private val contentBinding get() = binding.playlistDetail
     var search_query: String? = null
     var listState: Parcelable? = null
     private var mAdapter: SongAdapter? = null
     private var mModel: MutableList<SongModel>? = null
     private var mLayoutManager: RecyclerView.LayoutManager? = null
 
-    // unbinder
-    private val unbinder: Unbinder? = null
-    private val searchView: SearchView? = null
     private var id = 0
 
     private var itemTouchHelper: ItemTouchHelper? = null
@@ -79,20 +56,20 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_playlist_detail)
-        ButterKnife.bind(this)
-        val toolbar = findViewById<Toolbar?>(R.id.toolbar)
+        binding = ActivityPlaylistDetailBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        val toolbar = binding.toolbar
         setSupportActionBar(toolbar)
         if (supportActionBar != null) {
             supportActionBar!!.setDisplayHomeAsUpEnabled(true)
         }
         dao = SongData(this)
         mLayoutManager = LinearLayoutManager(this)
-        mRecyclerView!!.setLayoutManager(mLayoutManager)
-        mRecyclerView!!.setHasFixedSize(true)
-        mRecyclerView!!.addItemDecoration(Divider(this))
-        mRecyclerView!!.itemAnimator!!.addDuration = SharedUtils.rv_anim_duration.toLong()
-        mRecyclerView!!.setAdapter(null)
+        contentBinding.rvPlaylist.layoutManager = mLayoutManager
+        contentBinding.rvPlaylist.setHasFixedSize(true)
+        contentBinding.rvPlaylist.addItemDecoration(Divider(this))
+        contentBinding.rvPlaylist.itemAnimator?.addDuration = SharedUtils.rv_anim_duration.toLong()
+        contentBinding.rvPlaylist.adapter = null
         mModel = ArrayList()
         val extras = intent.extras
         if (extras != null) {
@@ -103,18 +80,18 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
             reload(id)
             title = name
             if (count == 0) {
-                offlineContainer!!.visibility = View.GONE
+                contentBinding.rlOffline.visibility = View.GONE
             } else {
-                offlineContainer!!.visibility = View.VISIBLE
+                contentBinding.rlOffline.visibility = View.VISIBLE
             }
             if (offline == 1) {
-                switchOffline!!.setChecked(true)
+                contentBinding.sbOffline.isChecked = true
                 downloadPlaylist()
             } else {
-                switchOffline!!.setChecked(false)
+                contentBinding.sbOffline.isChecked = false
             }
         }
-        switchOffline!!.setOnCheckedChangeListener(object : CompoundButton.OnCheckedChangeListener {
+        contentBinding.sbOffline.setOnCheckedChangeListener(object : CompoundButton.OnCheckedChangeListener {
             override fun onCheckedChanged(compoundButton: CompoundButton?, b: Boolean) {
                 val dao = PlaylistData(applicationContext)
                 val playlist = dao.getOne("playlist_id=$id") ?: return
@@ -249,7 +226,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
         val adapter = mAdapter ?: return
         val callback: ItemTouchHelper.Callback = ItemTouchCallback(adapter)
         itemTouchHelper = ItemTouchHelper(callback)
-        itemTouchHelper!!.attachToRecyclerView(mRecyclerView)
+        itemTouchHelper!!.attachToRecyclerView(contentBinding.rvPlaylist)
     }
 
     public override fun onResume() {
@@ -260,9 +237,9 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
     }
 
     fun reload(id: Int) {
-        message_view!!.visibility = View.GONE
+        contentBinding.messageView.visibility = View.GONE
         mModel!!.clear()
-        mRecyclerView!!.setAdapter(null)
+        contentBinding.rvPlaylist.adapter = null
         getSongs(id)
     }
 
@@ -272,12 +249,12 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
             mModel = model
             if (model.isNotEmpty()) {
                 mAdapter = SongAdapter(model, this, this, this)
-                mRecyclerView!!.setAdapter(mAdapter)
+                contentBinding.rvPlaylist.adapter = mAdapter
                 mAdapter!!.notifyItemChanged(0)
                 setUpTouch()
             } else {
                 SharedUtils.showMessage(
-                    message_view,
+                    contentBinding.messageView,
                     R.drawable.ic_info_black_24dp,
                     R.string.no_songs
                 )

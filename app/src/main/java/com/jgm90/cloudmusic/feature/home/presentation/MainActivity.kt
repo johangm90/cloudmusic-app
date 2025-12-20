@@ -14,7 +14,6 @@ import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
-import butterknife.ButterKnife
 import com.afollestad.materialdialogs.DialogAction
 import com.afollestad.materialdialogs.MaterialDialog
 import com.afollestad.materialdialogs.MaterialDialog.SingleButtonCallback
@@ -58,7 +57,6 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        ButterKnife.bind(this)
         if (savedInstanceState == null) {
             searchFragment = SearchFragment()
             playlistFragment = PlaylistFragment()

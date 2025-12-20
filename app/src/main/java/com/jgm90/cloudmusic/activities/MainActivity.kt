@@ -111,7 +111,7 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
         if (isChangingConfigurations) {
             Log.i("App", "Main Activity is changing configurations")
         } else {
-            player_service.stopSelf()
+            player_service?.stopSelf()
         }
     }
 

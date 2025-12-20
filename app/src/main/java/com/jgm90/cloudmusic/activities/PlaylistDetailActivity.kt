@@ -64,7 +64,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
     var search_query: String? = null
     var listState: Parcelable? = null
     private var mAdapter: SongAdapter? = null
-    private var mModel: MutableList<SongModel?>? = null
+    private var mModel: MutableList<SongModel>? = null
     private var mLayoutManager: RecyclerView.LayoutManager? = null
 
     // unbinder
@@ -92,7 +92,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
         mRecyclerView!!.addItemDecoration(Divider(this))
         mRecyclerView!!.itemAnimator!!.addDuration = SharedUtils.rv_anim_duration.toLong()
         mRecyclerView!!.setAdapter(null)
-        mModel = ArrayList<SongModel?>()
+        mModel = ArrayList()
         val extras = intent.extras
         if (extras != null) {
             id = extras.getInt("PLAYLIST_ID")
@@ -116,7 +116,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
         switchOffline!!.setOnCheckedChangeListener(object : CompoundButton.OnCheckedChangeListener {
             override fun onCheckedChanged(compoundButton: CompoundButton?, b: Boolean) {
                 val dao = PlaylistData(applicationContext)
-                val playlist = dao.getOne("playlist_id=$id")
+                val playlist = dao.getOne("playlist_id=$id") ?: return
                 if (b) {
                     playlist.offline = 1
                     dao.update(playlist)
@@ -131,26 +131,26 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
 
     private fun downloadPlaylist() {
         val songs = dao!!.getAllFilter(SongsTable.COL_PLAYLIST_ID + "=" + id)
-        if (!songs.isEmpty()) {
+        if (songs.isNotEmpty()) {
             for (i in songs.indices) {
-                if (!TextUtils.isEmpty(songs[i]!!.local_file)) {
-                    val song = File(songs[i]!!.local_file)
+                if (!TextUtils.isEmpty(songs[i].local_file)) {
+                    val song = File(songs[i].local_file)
                     if (!song.exists()) {
-                        downloadSong(songs[i]!!)
+                        downloadSong(songs[i])
                     }
                 } else {
-                    downloadSong(songs[i]!!)
+                    downloadSong(songs[i])
                 }
-                if (!TextUtils.isEmpty(songs[i]!!.local_thumbnail)) {
-                    val thumbnail = File(songs[i]!!.local_thumbnail)
+                if (!TextUtils.isEmpty(songs[i].local_thumbnail)) {
+                    val thumbnail = File(songs[i].local_thumbnail)
                     if (!thumbnail.exists()) {
-                        downloadThumbnail(songs[i]!!)
+                        downloadThumbnail(songs[i])
                     }
                 } else {
-                    downloadThumbnail(songs[i]!!)
+                    downloadThumbnail(songs[i])
                 }
-                if (TextUtils.isEmpty(songs[i]!!.local_lyric)) {
-                    downloadLyric(songs[i]!!)
+                if (TextUtils.isEmpty(songs[i].local_lyric)) {
+                    downloadLyric(songs[i])
                 }
             }
         }
@@ -245,7 +245,8 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
     }
 
     private fun setUpTouch() {
-        val callback: ItemTouchHelper.Callback = ItemTouchCallback(mAdapter)
+        val adapter = mAdapter ?: return
+        val callback: ItemTouchHelper.Callback = ItemTouchCallback(adapter)
         itemTouchHelper = ItemTouchHelper(callback)
         itemTouchHelper!!.attachToRecyclerView(mRecyclerView)
     }
@@ -266,9 +267,10 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
 
     fun getSongs(id: Int) {
         try {
-            mModel = dao!!.getAllFilter(SongsTable.COL_PLAYLIST_ID + "=" + id)
-            if (mModel!!.isNotEmpty()) {
-                mAdapter = SongAdapter(mModel, this, this, this)
+            val model = dao!!.getAllFilter(SongsTable.COL_PLAYLIST_ID + "=" + id).toMutableList()
+            mModel = model
+            if (model.isNotEmpty()) {
+                mAdapter = SongAdapter(model, this, this, this)
                 mRecyclerView!!.setAdapter(mAdapter)
                 mAdapter!!.notifyItemChanged(0)
                 setUpTouch()

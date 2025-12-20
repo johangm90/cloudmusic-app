@@ -78,7 +78,7 @@ class SearchFragment : Fragment(), SearchView.OnQueryTextListener {
                                         NowPlayingActivity::class.java
                                     )
                                     intent.putExtra("SONG_INDEX", index)
-                                    NowPlayingActivity.audioList = state.searchResults
+                                    NowPlayingActivity.audioList = state.searchResults.toMutableList()
                                     requireContext().startActivity(intent)
                                 },
                                 onDownloadClick = {
@@ -93,7 +93,7 @@ class SearchFragment : Fragment(), SearchView.OnQueryTextListener {
                                     )
                                 },
                                 onAddToPlaylistClick = {
-                                    AddToPlaylistDialog(context).show(song)
+                                    AddToPlaylistDialog(requireContext()).show(song)
                                 }
                             )
                             HorizontalDivider()
@@ -134,4 +134,3 @@ class SearchFragment : Fragment(), SearchView.OnQueryTextListener {
         return true
     }
 }
-

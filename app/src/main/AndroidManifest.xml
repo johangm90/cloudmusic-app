@@ -22,7 +22,7 @@
         android:usesCleartextTraffic="true"
         tools:ignore="GoogleAppIndexingWarning">
         <service
-            android:name="com.jgm90.cloudmusic.services.MediaPlayerService"
+            android:name="com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
@@ -39,7 +39,7 @@
         </receiver>
 
         <activity
-            android:name="com.jgm90.cloudmusic.activities.MainActivity"
+            android:name="com.jgm90.cloudmusic.feature.home.presentation.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/SplashTheme">
@@ -49,9 +49,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name="com.jgm90.cloudmusic.activities.NowPlayingActivity" />
+        <activity android:name="com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity" />
         <activity
-            android:name="com.jgm90.cloudmusic.activities.PlaylistDetailActivity"
+            android:name="com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistDetailActivity"
             android:label="@string/title_activity_playlist_detail"
             android:theme="@style/AppTheme.NoActionBar" />
     </application>

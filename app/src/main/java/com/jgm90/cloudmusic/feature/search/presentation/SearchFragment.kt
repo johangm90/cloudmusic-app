@@ -19,12 +19,12 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.activities.NowPlayingActivity
+import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
 import com.jgm90.cloudmusic.databinding.FragmentSearchBinding
-import com.jgm90.cloudmusic.dialogs.AddToPlaylistDialog
-import com.jgm90.cloudmusic.events.DownloadEvent
+import com.jgm90.cloudmusic.feature.playlist.presentation.dialogs.AddToPlaylistDialog
+import com.jgm90.cloudmusic.core.event.DownloadEvent
 import com.jgm90.cloudmusic.feature.search.presentation.viewmodel.SearchViewModel
-import com.jgm90.cloudmusic.ui.theme.CloudMusicTheme
+import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import io.nubit.cloudmusic.designsystem.component.EmptyState
 import io.nubit.cloudmusic.designsystem.component.Loader
 import io.nubit.cloudmusic.designsystem.component.SongItem

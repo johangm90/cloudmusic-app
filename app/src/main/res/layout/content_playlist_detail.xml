@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     app:layout_behavior="@string/appbar_scrolling_view_behavior"
-    tools:context="com.jgm90.cloudmusic.activities.PlaylistDetailActivity"
+    tools:context="com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistDetailActivity"
     tools:showIn="@layout/activity_playlist_detail">
 
     <RelativeLayout
@@ -39,7 +39,7 @@
         android:layout_below="@+id/rl_offline"
         android:layout_above="@+id/controls_container" />
 
-    <com.jgm90.cloudmusic.widgets.VulgryMessageView
+    <com.jgm90.cloudmusic.core.ui.widget.VulgryMessageView
         android:id="@+id/message_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -54,7 +54,7 @@
         app:elevation="8dp">
 
         <fragment
-            android:name="com.jgm90.cloudmusic.fragments.PlaybackControlsFragment"
+            android:name="com.jgm90.cloudmusic.feature.playback.presentation.PlaybackControlsFragment"
             android:id="@+id/fragment_playback_controls"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

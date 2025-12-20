@@ -1,6 +1,6 @@
 package com.jgm90.cloudmusic.feature.search.presentation.viewmodel
 
-import com.jgm90.cloudmusic.models.SongModel
+import com.jgm90.cloudmusic.core.model.SongModel
 
 data class SearchViewState(
     val searchText: String = "",

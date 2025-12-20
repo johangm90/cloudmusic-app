@@ -22,7 +22,7 @@
         app:elevation="8dp">
 
         <fragment
-            android:name="com.jgm90.cloudmusic.fragments.PlaybackControlsFragment"
+            android:name="com.jgm90.cloudmusic.feature.playback.presentation.PlaybackControlsFragment"
             android:id="@+id/fragment_playback_controls"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

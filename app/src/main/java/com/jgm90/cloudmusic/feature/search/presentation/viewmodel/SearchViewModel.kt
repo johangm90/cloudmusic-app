@@ -3,8 +3,8 @@ package com.jgm90.cloudmusic.feature.search.presentation.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jgm90.cloudmusic.utils.RestClient
-import com.jgm90.cloudmusic.utils.SharedUtils
+import com.jgm90.cloudmusic.core.network.RestClient
+import com.jgm90.cloudmusic.core.util.SharedUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update

@@ -2,14 +2,14 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.jgm90.cloudmusic.fragments.PlaylistFragment">
+    tools:context="com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistFragment">
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_playlists"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <com.jgm90.cloudmusic.widgets.VulgryMessageView
+    <com.jgm90.cloudmusic.core.ui.widget.VulgryMessageView
         android:id="@+id/message_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

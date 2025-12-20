@@ -22,13 +22,13 @@ import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
 import com.jgm90.cloudmusic.databinding.FragmentSearchBinding
 import com.jgm90.cloudmusic.feature.playlist.presentation.dialogs.AddToPlaylistDialog
+import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.DownloadEvent
 import com.jgm90.cloudmusic.feature.search.presentation.viewmodel.SearchViewModel
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import io.nubit.cloudmusic.designsystem.component.EmptyState
 import io.nubit.cloudmusic.designsystem.component.Loader
 import io.nubit.cloudmusic.designsystem.component.SongItem
-import org.greenrobot.eventbus.EventBus
 
 class SearchFragment : Fragment(), SearchView.OnQueryTextListener {
     private var _binding: FragmentSearchBinding? = null
@@ -82,7 +82,7 @@ class SearchFragment : Fragment(), SearchView.OnQueryTextListener {
                                     requireContext().startActivity(intent)
                                 },
                                 onDownloadClick = {
-                                    EventBus.getDefault().postSticky(
+                                    AppEventBus.postSticky(
                                         DownloadEvent(
                                             true,
                                             DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,

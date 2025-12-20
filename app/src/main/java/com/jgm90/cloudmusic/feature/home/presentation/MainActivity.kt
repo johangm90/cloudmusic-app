@@ -19,14 +19,14 @@ import com.afollestad.materialdialogs.MaterialDialog
 import com.afollestad.materialdialogs.MaterialDialog.SingleButtonCallback
 import com.google.android.material.navigation.NavigationView
 import com.jgm90.cloudmusic.R
+import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.DownloadEvent
 import com.jgm90.cloudmusic.core.app.BaseActivity
 import com.jgm90.cloudmusic.feature.search.presentation.SearchFragment
 import com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistFragment
 import com.jgm90.cloudmusic.core.util.SharedUtils
-import org.greenrobot.eventbus.EventBus
-import org.greenrobot.eventbus.Subscribe
-import org.greenrobot.eventbus.ThreadMode
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Job
 
 class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedListener {
     private val SF_TAG = "sf_tag"
@@ -34,6 +34,7 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
     private var searchFragment: SearchFragment? = null
     private var playlistFragment: PlaylistFragment? = null
     private var packageInfo: PackageInfo? = null
+    private var eventJobs: List<Job> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.AppTheme_NoActionBar)
@@ -72,7 +73,6 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
                 playlistFragment = PlaylistFragment()
             }
         }
-        EventBus.getDefault().register(this)
         showChangelog()
     }
 
@@ -106,12 +106,27 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
 
     override fun onDestroy() {
         super.onDestroy()
-        EventBus.getDefault().unregister(this)
         if (isChangingConfigurations) {
             Log.i("App", "Main Activity is changing configurations")
         } else {
             player_service?.stopSelf()
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        eventJobs = listOf(
+            AppEventBus.observe<DownloadEvent>(lifecycleScope) { event ->
+                download(event)
+                AppEventBus.clearSticky(DownloadEvent::class)
+            },
+        )
+    }
+
+    override fun onStop() {
+        super.onStop()
+        eventJobs.forEach { it.cancel() }
+        eventJobs = emptyList()
     }
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
@@ -165,8 +180,7 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
         ft.commit()
     }
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
-    fun download(event: DownloadEvent) {
+    private fun download(event: DownloadEvent) {
         val downloadManager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
         val uri = Uri.parse(event.url)
         val request = DownloadManager.Request(uri)

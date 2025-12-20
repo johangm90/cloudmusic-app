@@ -40,6 +40,7 @@ import com.bumptech.glide.request.transition.Transition
 import com.jgm90.cloudmusic.GlideApp
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
+import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.IsPlayingEvent
 import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
@@ -47,11 +48,13 @@ import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
 import com.jgm90.cloudmusic.core.playback.PlaybackStatus
 import com.jgm90.cloudmusic.core.util.SharedUtils
-import org.greenrobot.eventbus.EventBus
-import org.greenrobot.eventbus.Subscribe
-import org.greenrobot.eventbus.ThreadMode
 import java.io.File
 import java.util.Random
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import retrofit2.Call
 
 class MediaPlayerService : Service(),
@@ -87,6 +90,8 @@ class MediaPlayerService : Service(),
     private var nextIntent: PendingIntent? = null
     private var stopIntent: PendingIntent? = null
     private var audioNoisyReceiverRegistered = false
+    private val eventScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var eventJobs: List<Job> = emptyList()
 
     private val audioNoisyReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -96,7 +101,7 @@ class MediaPlayerService : Service(),
                     pauseMedia()
                     setMediaPlaybackState(PlaybackStateCompat.STATE_PAUSED)
                     buildNotification(PlaybackStatus.PAUSED)
-                    EventBus.getDefault().postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                    AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
                 }
             }
         }
@@ -171,7 +176,7 @@ class MediaPlayerService : Service(),
             resumeMedia()
             setMediaPlaybackState(PlaybackStateCompat.STATE_PLAYING)
             buildNotification(PlaybackStatus.PLAYING)
-            EventBus.getDefault().postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+            AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
         }
 
         override fun onPause() {
@@ -179,7 +184,7 @@ class MediaPlayerService : Service(),
             pauseMedia()
             setMediaPlaybackState(PlaybackStateCompat.STATE_PAUSED)
             buildNotification(PlaybackStatus.PAUSED)
-            EventBus.getDefault().postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+            AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
         }
 
         override fun onSkipToPrevious() {
@@ -233,7 +238,10 @@ class MediaPlayerService : Service(),
         )
         registerUserActions()
         handler = Handler()
-        EventBus.getDefault().register(this)
+        eventJobs = listOf(
+            AppEventBus.observe<PlayPauseEvent>(eventScope, receiveSticky = false) { eventPlayOrPause(it) },
+            AppEventBus.observe<IsPlayingEvent>(eventScope) { setIcon(it) },
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -286,7 +294,9 @@ class MediaPlayerService : Service(),
         removeNotification()
         unregisterReceiver(playNewAudio)
         unregisterReceiver(userActions)
-        EventBus.getDefault().unregister(this)
+        eventJobs.forEach { it.cancel() }
+        eventJobs = emptyList()
+        eventScope.cancel()
     }
 
     override fun onBufferingUpdate(mp: MediaPlayer, percent: Int) {
@@ -307,7 +317,7 @@ class MediaPlayerService : Service(),
                 mediaPlayer?.stop()
                 setMediaPlaybackState(PlaybackStateCompat.STATE_PAUSED)
                 buildNotification(PlaybackStatus.PAUSED)
-                EventBus.getDefault().postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
                 return
             }
         } else {
@@ -364,7 +374,7 @@ class MediaPlayerService : Service(),
                 if (mediaPlayer == null) initMediaPlayer()
                 else if (shouldResume) {
                     mediaPlayer?.start()
-                    EventBus.getDefault().postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                    AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
                     shouldResume = false
                 }
                 mediaPlayer?.setVolume(1.0f, 1.0f)
@@ -372,14 +382,14 @@ class MediaPlayerService : Service(),
             AudioManager.AUDIOFOCUS_LOSS -> {
                 if (isPlaying()) {
                     mediaPlayer?.pause()
-                    EventBus.getDefault().postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                    AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
                     shouldResume = false
                 }
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 if (isPlaying()) {
                     mediaPlayer?.pause()
-                    EventBus.getDefault().postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                    AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
                     shouldResume = true
                 }
             }
@@ -453,7 +463,7 @@ class MediaPlayerService : Service(),
                 } else {
                     it.start()
                 }
-                EventBus.getDefault().postSticky(IsPlayingEvent(it.isPlaying))
+                AppEventBus.postSticky(IsPlayingEvent(it.isPlaying))
             }
         } catch (_: Exception) {
         }
@@ -479,7 +489,6 @@ class MediaPlayerService : Service(),
         }
     }
 
-    @Subscribe(threadMode = ThreadMode.MAIN)
     fun eventPlayOrPause(event: PlayPauseEvent) {
         Log.d("Event", event.message)
         try {
@@ -489,7 +498,7 @@ class MediaPlayerService : Service(),
                 } else {
                     it.start()
                 }
-                EventBus.getDefault().postSticky(IsPlayingEvent(it.isPlaying))
+                AppEventBus.postSticky(IsPlayingEvent(it.isPlaying))
             }
         } catch (_: Exception) {
         }
@@ -575,7 +584,7 @@ class MediaPlayerService : Service(),
                             ongoingCall = true
                             if (isPlaying()) {
                                 pauseMedia()
-                                EventBus.getDefault().postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                                AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
                                 shouldResume = true
                             }
                         }
@@ -585,7 +594,7 @@ class MediaPlayerService : Service(),
                             ongoingCall = false
                             if (shouldResume) {
                                 resumeMedia()
-                                EventBus.getDefault().postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                                AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
                                 shouldResume = false
                             }
                         }
@@ -628,7 +637,6 @@ class MediaPlayerService : Service(),
         mediaSession?.setPlaybackState(playbackstateBuilder.build())
     }
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
     fun setIcon(event: IsPlayingEvent) {
         if (event.isPlaying) {
             setMediaPlaybackState(PlaybackStateCompat.STATE_PLAYING)
@@ -758,7 +766,7 @@ class MediaPlayerService : Service(),
                         updateMetaData(resource)
                         currentIndex = audioIndex
                         currentArt = resource
-                        EventBus.getDefault().postSticky(OnSourceChangeEvent("Metadata changed"))
+                        AppEventBus.postSticky(OnSourceChangeEvent("Metadata changed"))
                     }
                 })
         } catch (e: Exception) {

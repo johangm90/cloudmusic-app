@@ -1,6 +1,5 @@
 package com.jgm90.cloudmusic.feature.playback.presentation
 
-import android.app.Fragment
 import android.content.Intent
 import android.os.Bundle
 import android.support.v4.media.MediaMetadataCompat
@@ -16,20 +15,20 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.jgm90.cloudmusic.GlideApp
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
+import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.IsPlayingEvent
 import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
 import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
-import org.greenrobot.eventbus.EventBus
-import org.greenrobot.eventbus.Subscribe
-import org.greenrobot.eventbus.ThreadMode
+import kotlinx.coroutines.Job
 
 class PlaybackControlsFragment : Fragment() {
     private val buttonListener = View.OnClickListener {
-        EventBus.getDefault().post(PlayPauseEvent("From Playback Controls Fragment"))
+        AppEventBus.post(PlayPauseEvent("From Playback Controls Fragment"))
     }
 
     private lateinit var playPause: ImageButton
@@ -38,21 +37,23 @@ class PlaybackControlsFragment : Fragment() {
     private lateinit var extraInfo: TextView
     private lateinit var albumArt: AppCompatImageView
     private var artUrl: String? = null
+    private var eventJobs: List<Job> = emptyList()
 
-    private val callback: MediaControllerCompat.Callback = object : MediaControllerCompat.Callback() {
-        override fun onPlaybackStateChanged(state: PlaybackStateCompat) {
-            Log.d(TAG, "Received playback state change to state")
-            this@PlaybackControlsFragment.onPlaybackStateChanged(state)
-        }
-
-        override fun onMetadataChanged(metadata: MediaMetadataCompat?) {
-            if (metadata == null) {
-                return
+    private val callback: MediaControllerCompat.Callback =
+        object : MediaControllerCompat.Callback() {
+            override fun onPlaybackStateChanged(state: PlaybackStateCompat) {
+                Log.d(TAG, "Received playback state change to state")
+                this@PlaybackControlsFragment.onPlaybackStateChanged(state)
             }
-            Log.d(TAG, "Received metadata state change to mediaId")
-            this@PlaybackControlsFragment.onMetadataChanged(metadata)
+
+            override fun onMetadataChanged(metadata: MediaMetadataCompat?) {
+                if (metadata == null) {
+                    return
+                }
+                Log.d(TAG, "Received metadata state change to mediaId")
+                this@PlaybackControlsFragment.onMetadataChanged(metadata)
+            }
         }
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -79,24 +80,28 @@ class PlaybackControlsFragment : Fragment() {
     override fun onStart() {
         super.onStart()
         Log.d(TAG, "fragment.onStart")
-        val controller = MediaControllerCompat.getMediaController(activity)
+        val controller = MediaControllerCompat.getMediaController(requireActivity())
         if (controller != null) {
             onConnected()
         }
         loadData()
-        EventBus.getDefault().register(this)
+        eventJobs = listOf(
+            AppEventBus.observe<IsPlayingEvent>(requireActivity().lifecycleScope) { setIcon(it) },
+            AppEventBus.observe<OnSourceChangeEvent>(requireActivity().lifecycleScope) { setData(it) },
+        )
     }
 
     override fun onStop() {
         super.onStop()
         Log.d(TAG, "fragment.onStop")
-        val controller = MediaControllerCompat.getMediaController(activity)
+        val controller = MediaControllerCompat.getMediaController(requireActivity())
         controller?.unregisterCallback(callback)
-        EventBus.getDefault().unregister(this)
+        eventJobs.forEach { it.cancel() }
+        eventJobs = emptyList()
     }
 
     private fun onConnected() {
-        val controller = MediaControllerCompat.getMediaController(activity)
+        val controller = MediaControllerCompat.getMediaController(requireActivity())
         Log.d(TAG, "onConnected, mediaController==null?")
         if (controller != null) {
             onMetadataChanged(controller.metadata)
@@ -108,7 +113,10 @@ class PlaybackControlsFragment : Fragment() {
     private fun onMetadataChanged(metadata: MediaMetadataCompat) {
         Log.d(TAG, "onMetadataChanged")
         val host = activity ?: run {
-            Log.w(TAG, "onMetadataChanged called when getActivity null, this should not happen if the callback was properly unregistered. Ignoring.")
+            Log.w(
+                TAG,
+                "onMetadataChanged called when getActivity null, this should not happen if the callback was properly unregistered. Ignoring."
+            )
             return
         }
         title.text = metadata.description.title
@@ -146,13 +154,17 @@ class PlaybackControlsFragment : Fragment() {
     private fun onPlaybackStateChanged(state: PlaybackStateCompat) {
         Log.d(TAG, "onPlaybackStateChanged")
         if (activity == null) {
-            Log.w(TAG, "onPlaybackStateChanged called when getActivity null, this should not happen if the callback was properly unregistered. Ignoring.")
+            Log.w(
+                TAG,
+                "onPlaybackStateChanged called when getActivity null, this should not happen if the callback was properly unregistered. Ignoring."
+            )
             return
         }
         var enablePlay = false
         when (state.state) {
             PlaybackStateCompat.STATE_PAUSED,
             PlaybackStateCompat.STATE_STOPPED -> enablePlay = true
+
             PlaybackStateCompat.STATE_ERROR -> {
                 Log.e(TAG, "error playbackstate")
                 Toast.makeText(activity, state.errorMessage, Toast.LENGTH_LONG).show()
@@ -160,31 +172,29 @@ class PlaybackControlsFragment : Fragment() {
         }
         if (enablePlay) {
             playPause.setImageDrawable(
-                ContextCompat.getDrawable(activity, R.drawable.ic_play_arrow),
+                ContextCompat.getDrawable(requireContext(), R.drawable.ic_play_arrow),
             )
         } else {
             playPause.setImageDrawable(
-                ContextCompat.getDrawable(activity, R.drawable.ic_pause),
+                ContextCompat.getDrawable(requireContext(), R.drawable.ic_pause),
             )
         }
         setExtraInfo(null)
     }
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
     fun setIcon(event: IsPlayingEvent) {
         Log.d("Event", "isPlaying ${event.isPlaying}")
         if (event.isPlaying) {
             playPause.setImageDrawable(
-                ContextCompat.getDrawable(activity, R.drawable.ic_pause),
+                ContextCompat.getDrawable(requireContext(), R.drawable.ic_pause),
             )
         } else {
             playPause.setImageDrawable(
-                ContextCompat.getDrawable(activity, R.drawable.ic_play_arrow),
+                ContextCompat.getDrawable(requireContext(), R.drawable.ic_play_arrow),
             )
         }
     }
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
     fun setData(event: OnSourceChangeEvent) {
         Log.d("Event", "onCompletion ${event.message}")
         loadData()

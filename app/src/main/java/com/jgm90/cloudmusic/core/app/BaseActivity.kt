@@ -10,9 +10,9 @@ import android.os.IBinder
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import com.jgm90.cloudmusic.R
+import com.jgm90.cloudmusic.core.data.local.DbHelper
 import com.jgm90.cloudmusic.feature.playback.presentation.PlaybackControlsFragment
 import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
-import com.jgm90.cloudmusic.core.data.local.DbHelper
 
 open class BaseActivity : AppCompatActivity(), ServiceConnection {
     protected var player_service: MediaPlayerService? = null
@@ -30,7 +30,8 @@ open class BaseActivity : AppCompatActivity(), ServiceConnection {
     override fun onStart() {
         super.onStart()
         Log.d("Base", "OnStart")
-        controlsFragment = fragmentManager.findFragmentById(R.id.fragment_playback_controls) as? PlaybackControlsFragment
+        controlsFragment =
+            supportFragmentManager.findFragmentById(R.id.fragment_playback_controls) as? PlaybackControlsFragment
         if (controlsFragment != null) {
             if (player_service == null) {
                 hidePlaybackControls()
@@ -47,16 +48,17 @@ open class BaseActivity : AppCompatActivity(), ServiceConnection {
 
     protected fun showPlaybackControls() {
         Log.d("Base", "showPlaybackControls")
-        controlsFragment = fragmentManager.findFragmentById(R.id.fragment_playback_controls) as? PlaybackControlsFragment
+        controlsFragment =
+            supportFragmentManager.findFragmentById(R.id.fragment_playback_controls) as? PlaybackControlsFragment
         controlsFragment?.let {
-            fragmentManager.beginTransaction().show(it).commit()
+            supportFragmentManager.beginTransaction().show(it).commit()
         }
     }
 
     protected fun hidePlaybackControls() {
         Log.d("Base", "hidePlaybackControls")
         controlsFragment?.let {
-            fragmentManager.beginTransaction().hide(it).commit()
+            supportFragmentManager.beginTransaction().hide(it).commit()
         }
     }
 

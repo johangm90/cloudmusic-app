@@ -22,6 +22,7 @@ import androidx.appcompat.app.ActionBar
 import androidx.appcompat.widget.Toolbar
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.palette.graphics.Palette
 import androidx.viewpager.widget.ViewPager
 import com.bumptech.glide.request.target.SimpleTarget
@@ -30,6 +31,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.jgm90.cloudmusic.GlideApp
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.app.BaseActivity
+import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.databinding.ActivityNowPlayingBinding
 import com.jgm90.cloudmusic.feature.playback.presentation.adapter.InfinitePagerAdapter
 import com.jgm90.cloudmusic.feature.playback.presentation.adapter.SlidePagerAdapter
@@ -46,9 +48,7 @@ import com.jgm90.cloudmusic.core.playback.PlaybackMode
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.feature.playback.presentation.widget.CMViewPager
 import com.jgm90.cloudmusic.feature.playback.presentation.widget.PlayPauseDrawable
-import org.greenrobot.eventbus.EventBus
-import org.greenrobot.eventbus.Subscribe
-import org.greenrobot.eventbus.ThreadMode
+import kotlinx.coroutines.Job
 
 class NowPlayingActivity : BaseActivity() {
     private lateinit var binding: ActivityNowPlayingBinding
@@ -96,6 +96,7 @@ class NowPlayingActivity : BaseActivity() {
     private var lyrics: List<LyricLine>? = null
     private var current_line = 0
     private var lastPosition = 0
+    private var eventJobs: List<Job> = emptyList()
 
     private val updateLyrics = object : Runnable {
         override fun run() {
@@ -254,8 +255,7 @@ class NowPlayingActivity : BaseActivity() {
             override fun onPageScrollStateChanged(state: Int) {
             }
         })
-        EventBus.getDefault().removeStickyEvent(OnSourceChangeEvent::class.java)
-        EventBus.getDefault().register(this)
+        AppEventBus.clearSticky(OnSourceChangeEvent::class)
         init()
     }
 
@@ -326,11 +326,23 @@ class NowPlayingActivity : BaseActivity() {
         song_call?.cancel()
         progressHandler.removeCallbacks(updateProgress)
         lyricsHandler.removeCallbacks(updateLyrics)
-        EventBus.getDefault().unregister(this)
         unbindService(serviceConnection)
     }
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
+    override fun onStart() {
+        super.onStart()
+        eventJobs = listOf(
+            AppEventBus.observe<IsPlayingEvent>(lifecycleScope) { setIcon(it) },
+            AppEventBus.observe<OnSourceChangeEvent>(lifecycleScope) { setInfo(it) },
+        )
+    }
+
+    override fun onStop() {
+        super.onStop()
+        eventJobs.forEach { it.cancel() }
+        eventJobs = emptyList()
+    }
+
     fun setIcon(event: IsPlayingEvent) {
         if (event.isPlaying) {
             playPauseDrawable.transformToPause(true)
@@ -339,7 +351,6 @@ class NowPlayingActivity : BaseActivity() {
         }
     }
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
     fun setInfo(event: OnSourceChangeEvent) {
         Log.d("Event", event.message)
         resetLyricsView()

@@ -26,7 +26,7 @@ import com.jgm90.cloudmusic.feature.playlist.presentation.contract.ItemTouchHelp
 import com.jgm90.cloudmusic.feature.playlist.presentation.contract.OnStartDragListener
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.util.SharedUtils
-import org.greenrobot.eventbus.EventBus
+import com.jgm90.cloudmusic.core.event.AppEventBus
 import java.util.Collections
 
 class SongAdapter(
@@ -103,7 +103,7 @@ class SongAdapter(
                     filename = filename.replace("\\\\|>|<|\"|\\||\\*|\\?|%|:|#|/".toRegex(), "")
                     when (item.itemId) {
                         R.id.playlist_item_descargar -> {
-                            EventBus.getDefault().postSticky(
+                            AppEventBus.postSticky(
                                 DownloadEvent(
                                     true,
                                     DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,

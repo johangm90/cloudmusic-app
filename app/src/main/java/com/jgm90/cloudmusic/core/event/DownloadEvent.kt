@@ -6,4 +6,4 @@ data class DownloadEvent(
     val url: String,
     val name: String,
     val filename: String,
-)
+) : AppEvent

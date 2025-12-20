@@ -9,15 +9,14 @@ import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
-import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.feature.playback.presentation.PlaybackControlsFragment
 import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
+import androidx.compose.runtime.mutableStateOf
 
 open class BaseActivity : AppCompatActivity(), ServiceConnection {
     protected var player_service: MediaPlayerService? = null
     protected var serviceBound = false
 
-    private var controlsFragment: PlaybackControlsFragment? = null
+    protected val playbackControlsVisible = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,35 +27,15 @@ open class BaseActivity : AppCompatActivity(), ServiceConnection {
     override fun onStart() {
         super.onStart()
         Log.d("Base", "OnStart")
-        controlsFragment =
-            supportFragmentManager.findFragmentById(R.id.fragment_playback_controls) as? PlaybackControlsFragment
-        if (controlsFragment != null) {
-            if (player_service == null) {
-                hidePlaybackControls()
-            }
+        if (player_service == null) {
+            playbackControlsVisible.value = false
         }
     }
 
     override fun onResume() {
         super.onResume()
         if (player_service != null && player_service?.current_index() != -1) {
-            showPlaybackControls()
-        }
-    }
-
-    protected fun showPlaybackControls() {
-        Log.d("Base", "showPlaybackControls")
-        controlsFragment =
-            supportFragmentManager.findFragmentById(R.id.fragment_playback_controls) as? PlaybackControlsFragment
-        controlsFragment?.let {
-            supportFragmentManager.beginTransaction().show(it).commit()
-        }
-    }
-
-    protected fun hidePlaybackControls() {
-        Log.d("Base", "hidePlaybackControls")
-        controlsFragment?.let {
-            supportFragmentManager.beginTransaction().hide(it).commit()
+            playbackControlsVisible.value = true
         }
     }
 
@@ -71,7 +50,7 @@ open class BaseActivity : AppCompatActivity(), ServiceConnection {
 
     protected open fun onServiceAttached(service: MediaPlayerService) {
         if (service.isPlaying()) {
-            showPlaybackControls()
+            playbackControlsVisible.value = true
         }
     }
 

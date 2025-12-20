@@ -4,55 +4,57 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.graphics.Bitmap
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.text.TextUtils
 import android.util.Log
-import android.view.Menu
-import android.view.MenuItem
-import android.view.View
-import android.view.animation.Animation
-import android.widget.ImageView
-import android.widget.RelativeLayout
-import android.widget.SeekBar
-import android.widget.TextView
-import androidx.appcompat.app.ActionBar
-import androidx.appcompat.widget.Toolbar
-import androidx.coordinatorlayout.widget.CoordinatorLayout
-import androidx.core.content.ContextCompat
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
-import androidx.palette.graphics.Palette
-import androidx.viewpager.widget.ViewPager
-import com.bumptech.glide.request.target.SimpleTarget
-import com.bumptech.glide.request.transition.Transition
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.jgm90.cloudmusic.GlideApp
+import coil3.compose.AsyncImage
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.app.BaseActivity
 import com.jgm90.cloudmusic.core.event.AppEventBus
-import com.jgm90.cloudmusic.core.network.RestInterface
-import com.jgm90.cloudmusic.databinding.ActivityNowPlayingBinding
-import com.jgm90.cloudmusic.feature.playback.presentation.adapter.InfinitePagerAdapter
-import com.jgm90.cloudmusic.feature.playback.presentation.adapter.SlidePagerAdapter
 import com.jgm90.cloudmusic.core.event.IsPlayingEvent
 import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
 import com.jgm90.cloudmusic.core.model.LyricModel
 import com.jgm90.cloudmusic.core.model.SongModel
-import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
-import com.jgm90.cloudmusic.core.ui.animation.AnimationUtils
+import com.jgm90.cloudmusic.core.network.RestInterface
 import com.jgm90.cloudmusic.core.playback.LyricLine
 import com.jgm90.cloudmusic.core.playback.Lyrics
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
+import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import com.jgm90.cloudmusic.core.util.SharedUtils
-import com.jgm90.cloudmusic.feature.playback.presentation.widget.CMViewPager
-import com.jgm90.cloudmusic.feature.playback.presentation.widget.PlayPauseDrawable
+import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -61,79 +63,69 @@ class NowPlayingActivity : BaseActivity() {
     @Inject
     lateinit var restInterface: RestInterface
 
-    private lateinit var binding: ActivityNowPlayingBinding
-    var pager: CMViewPager? = null
-    var songtitle: TextView? = null
-    var songartist: TextView? = null
-    var mProgress: SeekBar? = null
-    var elapsedtime: TextView? = null
-    var songduration: TextView? = null
-    var shuffle: ImageView? = null
-    var previous: ImageView? = null
-    var playPauseFloating: FloatingActionButton? = null
-    var next: ImageView? = null
-    var repeat: ImageView? = null
-    var header_view: CoordinatorLayout? = null
+    private val songTitle = mutableStateOf("")
+    private val songArtist = mutableStateOf("")
+    private val coverUrl = mutableStateOf("")
+    private val isPlaying = mutableStateOf(false)
+    private val shuffleEnabled = mutableStateOf(false)
+    private val repeatMode = mutableStateOf(PlaybackMode.NORMAL)
+    private val progressMs = mutableStateOf(0)
+    private val durationMs = mutableStateOf(0)
+    private val elapsedText = mutableStateOf("0:00")
+    private val durationText = mutableStateOf("0:00")
+    private val currentLyric = mutableStateOf("")
+    private val nextLyric = mutableStateOf("")
 
+    private var userSeeking = false
     private var lyricsJob: Job? = null
+    private var lyrics: List<LyricLine>? = null
+    private var currentLineIndex = 0
+    private var songIndex = 0
+    private var song: SongModel? = null
+    private var eventJobs: List<Job> = emptyList()
+
+    private lateinit var mainHandler: Handler
+    private lateinit var progressHandler: Handler
+    private lateinit var lyricsHandler: Handler
 
     private val updateProgress = object : Runnable {
         override fun run() {
             val service = player_service
-            if (service != null && service.isPlaying() && mProgress != null) {
-                songduration?.text = SharedUtils.makeShortTimeString(applicationContext, service.duration() / 1000)
-                mProgress?.max = service.duration().toInt()
-                val position = service.getPosition()
-                mProgress?.progress = position.toInt()
-                if (elapsedtime != null) {
-                    elapsedtime?.text = SharedUtils.makeShortTimeString(applicationContext, position / 1000)
+            if (service != null && service.isPlaying()) {
+                durationMs.value = service.duration().toInt()
+                durationText.value = SharedUtils.makeShortTimeString(applicationContext, service.duration() / 1000)
+                val position = service.getPosition().toInt()
+                elapsedText.value = SharedUtils.makeShortTimeString(applicationContext, position / 1000L)
+                if (!userSeeking) {
+                    progressMs.value = position
                 }
+                isPlaying.value = true
             }
             progressHandler.postDelayed(this, 50)
         }
     }
 
-    private var slideAdapter: SlidePagerAdapter? = null
-    private var infiniteAdapter: InfinitePagerAdapter? = null
-    var song_index = 0
-    private var song: SongModel? = null
-    private val playPauseDrawable = PlayPauseDrawable()
-    private var lyricsView: RelativeLayout? = null
-    private var currentLine: TextView? = null
-    private var nextLine: TextView? = null
-    private var lyricModel: LyricModel? = null
-    private var lyrics: List<LyricLine>? = null
-    private var current_line = 0
-    private var lastPosition = 0
-    private var eventJobs: List<Job> = emptyList()
-
     private val updateLyrics = object : Runnable {
         override fun run() {
             val service = player_service
-            if (service != null && service.isPlaying() && currentLine != null) {
+            if (service != null && service.isPlaying()) {
                 val position = service.getPosition()
-                if (position > 0 && lyrics != null) {
-                    val lyricsList = lyrics ?: emptyList()
+                val lyricsList = lyrics ?: emptyList()
+                if (position > 0 && lyricsList.isNotEmpty()) {
                     for (i in lyricsList.indices) {
                         val pos = (lyricsList[i].getTime() * 1000).toInt()
-                        if (pos <= position && current_line == 0) {
+                        if (pos <= position && currentLineIndex == 0) {
                             if (lyricsList[i].lyric != "") {
-                                currentLine?.text = lyricsList[i].lyric.replace("&apos;", "'")
-                                animateLyric()
+                                currentLyric.value = lyricsList[i].lyric.replace("&apos;", "'")
                             }
-                            nextLine?.text = lyricsList[i + 1].lyric.replace("&apos;", "'")
+                            nextLyric.value = lyricsList.getOrNull(i + 1)?.lyric?.replace("&apos;", "'").orEmpty()
                         }
-                        if (pos <= position && i > current_line) {
+                        if (pos <= position && i > currentLineIndex) {
                             if (lyricsList[i].lyric != "") {
-                                currentLine?.text = lyricsList[i].lyric.replace("&apos;", "'")
-                                animateLyric()
+                                currentLyric.value = lyricsList[i].lyric.replace("&apos;", "'")
                             }
-                            current_line = i
-                            if (i + 1 < lyricsList.size) {
-                                nextLine?.text = lyricsList[i + 1].lyric.replace("&apos;", "'")
-                            } else {
-                                nextLine?.text = ""
-                            }
+                            currentLineIndex = i
+                            nextLyric.value = lyricsList.getOrNull(i + 1)?.lyric?.replace("&apos;", "'").orEmpty()
                         }
                     }
                 }
@@ -141,10 +133,6 @@ class NowPlayingActivity : BaseActivity() {
             lyricsHandler.postDelayed(this, 50)
         }
     }
-
-    private lateinit var mainHandler: Handler
-    private lateinit var progressHandler: Handler
-    private lateinit var lyricsHandler: Handler
 
     private val serviceConnection: ServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
@@ -160,152 +148,83 @@ class NowPlayingActivity : BaseActivity() {
 
     private val loadInfo = Runnable {
         val list = audioList
-        if (song_index in list.indices) {
-            getDetail(list[song_index].id)
-            getLyrics(list[song_index].id)
+        if (songIndex in list.indices) {
+            getDetail(list[songIndex].id)
+            getLyrics(list[songIndex].id)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityNowPlayingBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        pager = binding.pager
-        songtitle = binding.songTitle
-        songartist = binding.songArtist
-        mProgress = binding.songProgress
-        elapsedtime = binding.songElapsedTime
-        songduration = binding.songDuration
-        shuffle = binding.shuffle
-        previous = binding.previous
-        playPauseFloating = binding.playpausefloating
-        next = binding.next
-        repeat = binding.repeat
-        header_view = binding.headerViewA
-        setupToolbar()
-        binding.playpausefloating.setOnClickListener { playOrPause() }
-        binding.previous.setOnClickListener { skipToPrevious() }
-        binding.next.setOnClickListener { skipToNext() }
-        binding.shuffle.setOnClickListener { setShuffle() }
-        binding.repeat.setOnClickListener { setRepeatMode() }
-        val extras = intent.extras
+
         mainHandler = Handler()
         progressHandler = Handler()
         lyricsHandler = Handler()
+
         if (SharedUtils.isMyServiceRunning(this, MediaPlayerService::class.java)) {
             val playerIntent = Intent(this, MediaPlayerService::class.java)
             bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE)
         }
-        slideAdapter = SlidePagerAdapter(this, audioList)
-        if (SharedUtils.getRepeatMode(this) == PlaybackMode.REPEAT) {
-            infiniteAdapter = InfinitePagerAdapter(slideAdapter!!)
-            pager?.adapter = infiniteAdapter
-        } else {
-            pager?.adapter = slideAdapter
+
+        if (audioList.isEmpty() && MediaPlayerService.audioList.isNotEmpty()) {
+            audioList = MediaPlayerService.audioList
         }
-        song_index = extras?.getInt("SONG_INDEX") ?: MediaPlayerService.audioIndex
-        lastPosition = pager?.currentItem ?: 0
-        pager?.setCurrentItem(song_index)
-        if (savedInstanceState != null) {
-            song = savedInstanceState.getParcelable(SONG_OBJECT)
-            lyricModel = savedInstanceState.getParcelable(LYRICS_OBJECT)
-            if (song != null) {
-                setDetails()
-            } else {
-                getDetail(audioList[song_index].id)
-            }
-            if (lyricModel != null) {
-                if (lyricModel?.lyric != null) {
-                    lyricModel?.lyric?.let { lrc ->
-                        lyrics = Lyrics.parse(lrc)
-                    }
-                    if (!lyrics.isNullOrEmpty()) {
-                        lyricsHandler.postDelayed(updateLyrics, 10)
-                    } else {
-                        currentLine?.text = "No lyrics found"
-                        nextLine?.text = ""
-                    }
-                } else {
-                    currentLine?.text = "No lyrics found"
-                    nextLine?.text = ""
-                }
-            } else {
-                getLyrics(audioList[song_index].id)
-            }
-            lyricsView?.visibility = View.VISIBLE
+
+        val extras = intent.extras
+        if (extras != null) {
+            songIndex = extras.getInt("SONG_INDEX", MediaPlayerService.audioIndex)
+            playAudio()
+            MediaPlayerService.audioList = audioList
+            MediaPlayerService.audioIndex = songIndex
+            mainHandler.post(loadInfo)
         } else {
-            if (extras != null) {
-                song_index = extras.getInt("SONG_INDEX")
-                playAudio()
-                MediaPlayerService.audioList = audioList
-                MediaPlayerService.audioIndex = song_index
-            } else {
-                song_index = MediaPlayerService.audioIndex
-                song = MediaPlayerService.song
-                setDetails()
-                getLyrics(audioList[song_index].id)
+            songIndex = MediaPlayerService.audioIndex
+            song = MediaPlayerService.song
+            setDetails()
+            if (audioList.isNotEmpty()) {
+                getLyrics(audioList[songIndex].id)
             }
         }
-        pager?.addOnPageChangeListener(object : ViewPager.OnPageChangeListener {
-            override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {
-            }
 
-            override fun onPageSelected(position: Int) {
-                Log.d("last", lastPosition.toString())
-                Log.d("pos", position.toString())
-                if (lastPosition > position) {
-                    skipToPrevious()
-                } else if (lastPosition < position) {
-                    skipToNext()
-                }
-                lastPosition = position
-            }
-
-            override fun onPageScrollStateChanged(state: Int) {
-            }
-        })
-        AppEventBus.clearSticky(OnSourceChangeEvent::class)
         init()
-    }
 
-    private fun setupToolbar() {
-        val toolbar = binding.toolbar
-        if (toolbar != null) {
-            setSupportActionBar(toolbar)
-            val ab: ActionBar? = supportActionBar
-            ab?.setDisplayHomeAsUpEnabled(true)
-            ab?.title = ""
-            toolbar.setNavigationIcon(R.drawable.ic_keyboard_arrow_down_24dp)
+        setContent {
+            CloudMusicTheme {
+                NowPlayingScreen(
+                    songTitle = songTitle.value,
+                    songArtist = songArtist.value,
+                    coverUrl = coverUrl.value,
+                    isPlaying = isPlaying.value,
+                    shuffleEnabled = shuffleEnabled.value,
+                    repeatMode = repeatMode.value,
+                    progressMs = progressMs.value,
+                    durationMs = durationMs.value,
+                    elapsedText = elapsedText.value,
+                    durationText = durationText.value,
+                    currentLyric = currentLyric.value,
+                    nextLyric = nextLyric.value,
+                    onBack = { finish() },
+                    onPlayPause = { playOrPause() },
+                    onPrevious = { skipToPrevious() },
+                    onNext = { skipToNext() },
+                    onShuffle = { setShuffle() },
+                    onRepeat = { setRepeatMode() },
+                    onSeekChange = { value ->
+                        userSeeking = true
+                        progressMs.value = value
+                    },
+                    onSeekEnd = {
+                        userSeeking = false
+                        player_service?.seek(progressMs.value)
+                    },
+                )
+            }
         }
     }
 
     private fun init() {
-        if (SharedUtils.getShuffle(this)) {
-            shuffle?.alpha = 1f
-        } else {
-            shuffle?.alpha = 0.4f
-        }
-        when (SharedUtils.getRepeatMode(this)) {
-            PlaybackMode.NORMAL -> {
-                repeat?.setImageResource(R.drawable.ic_repeat_black_24dp)
-                repeat?.alpha = 0.4f
-            }
-            PlaybackMode.REPEAT -> {
-                repeat?.setImageResource(R.drawable.ic_repeat_black_24dp)
-                repeat?.alpha = 1f
-            }
-            PlaybackMode.REPEAT_ONE -> {
-                repeat?.setImageResource(R.drawable.ic_repeat_one_black_24dp)
-                repeat?.alpha = 1f
-            }
-        }
-    }
-
-    private fun animateLyric() {
-        val animation: Animation = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.slide_up)
-        animation.reset()
-        currentLine?.clearAnimation()
-        currentLine?.startAnimation(animation)
+        shuffleEnabled.value = SharedUtils.getShuffle(this)
+        repeatMode.value = SharedUtils.getRepeatMode(this)
     }
 
     fun playOrPause() {
@@ -325,7 +244,7 @@ class NowPlayingActivity : BaseActivity() {
         if (player_service?.isPlaying() == true) {
             progressHandler.post(updateProgress)
         }
-        if (lyricModel?.lyric != null) {
+        if (lyrics != null) {
             lyricsHandler.post(updateLyrics)
         }
     }
@@ -352,230 +271,127 @@ class NowPlayingActivity : BaseActivity() {
         eventJobs = emptyList()
     }
 
-    fun setIcon(event: IsPlayingEvent) {
-        if (event.isPlaying) {
-            playPauseDrawable.transformToPause(true)
-        } else {
-            playPauseDrawable.transformToPlay(true)
-        }
+    private fun setIcon(event: IsPlayingEvent) {
+        isPlaying.value = event.isPlaying
     }
 
-    fun setInfo(event: OnSourceChangeEvent) {
+    private fun setInfo(event: OnSourceChangeEvent) {
         Log.d("Event", event.message)
         resetLyricsView()
-        song_index = player_service?.current_index() ?: song_index
+        songIndex = player_service?.current_index() ?: songIndex
         mainHandler.post(loadInfo)
     }
 
     private fun resetLyricsView() {
-        if (currentLine != null && nextLine != null) {
-            current_line = 0
-            currentLine?.text = ""
-            nextLine?.text = ""
-        }
+        currentLineIndex = 0
+        currentLyric.value = ""
+        nextLyric.value = ""
     }
 
     private fun getDetail(id: String?) {
-        song = audioList[song_index]
+        song = audioList.getOrNull(songIndex)
         if (song != null) {
             setDetails()
         }
     }
 
     private fun getLyrics(id: String?) {
-        song = audioList[song_index]
+        song = audioList.getOrNull(songIndex)
         val currentSong = song ?: return
-        lyricsView = pager?.findViewWithTag("lyricsView_${currentSong.id}")
-        currentLine = pager?.findViewWithTag("currentView_${currentSong.id}")
-        nextLine = pager?.findViewWithTag("nextView_${currentSong.id}")
-        if (lyricsView != null) {
-            if (!TextUtils.isEmpty(currentSong.local_lyric)) {
-                lyricModel = LyricModel(1, 1, currentSong.local_lyric, 200)
-                lyricModel?.lyric?.let { lrc ->
-                    lyrics = Lyrics.parse(lrc)
-                }
-                if (!lyrics.isNullOrEmpty()) {
-                    lyricsHandler.postDelayed(updateLyrics, 10)
-                    lyricsView?.visibility = View.VISIBLE
-                }
+        if (!TextUtils.isEmpty(currentSong.local_lyric)) {
+            val lyricModel = LyricModel(1, 1, currentSong.local_lyric, 200)
+            lyricModel.lyric?.let { lrc ->
+                lyrics = Lyrics.parse(lrc)
+            }
+            if (!lyrics.isNullOrEmpty()) {
+                lyricsHandler.postDelayed(updateLyrics, 10)
             } else {
-                lyricsJob?.cancel()
-                lyricsJob = lifecycleScope.launch {
-                    val response = runCatching {
-                        withContext(Dispatchers.IO) {
-                            restInterface.getLyrics(id)
-                        }
-                    }
-                    response.onSuccess { lyric ->
-                        lyricModel = lyric
-                        if (!lyricModel?.lyric.isNullOrEmpty()) {
-                            Log.i("Lyrics", lyricModel?.lyric.orEmpty())
-                            lyricModel?.lyric?.let { lrc ->
-                                lyrics = Lyrics.parse(lrc)
-                            }
-                            lyricsHandler.postDelayed(updateLyrics, 10)
-                        } else {
-                            currentLine?.text = "No lyrics found"
-                            nextLine?.text = ""
-                        }
-                        lyricsView?.visibility = View.VISIBLE
-                    }.onFailure {
-                        Log.e("App", "Fail to get lyrics")
+                currentLyric.value = "No lyrics found"
+                nextLyric.value = ""
+            }
+        } else {
+            lyricsJob?.cancel()
+            lyricsJob = lifecycleScope.launch {
+                val response = runCatching {
+                    withContext(Dispatchers.IO) {
+                        restInterface.getLyrics(id)
                     }
                 }
-            }
-        }
-    }
-
-    private fun getMostPopulousSwatch(palette: Palette?): Palette.Swatch? {
-        var mostPopulous: Palette.Swatch? = null
-        if (palette != null) {
-            for (swatch in palette.swatches) {
-                if (mostPopulous == null || swatch.population > mostPopulous.population) {
-                    mostPopulous = swatch
+                response.onSuccess { lyric ->
+                    if (!lyric?.lyric.isNullOrEmpty()) {
+                        lyric.lyric?.let { lrc ->
+                            lyrics = Lyrics.parse(lrc)
+                        }
+                        lyricsHandler.postDelayed(updateLyrics, 10)
+                    } else {
+                        currentLyric.value = "No lyrics found"
+                        nextLyric.value = ""
+                    }
+                }.onFailure {
+                    Log.e("App", "Fail to get lyrics")
                 }
             }
-        }
-        return mostPopulous
-    }
-
-    private fun setUpBackgroundColor(fl: CoordinatorLayout?, palette: Palette?) {
-        val swatch = getMostPopulousSwatch(palette)
-        if (swatch != null && fl != null) {
-            val startColor = ContextCompat.getColor(fl.context, R.color.grey_800)
-            val endColor = swatch.rgb
-            AnimationUtils.animColorChange(fl, startColor, endColor)
         }
     }
 
     private fun setDetails() {
-        song = audioList[song_index]
-        val currentSong = song ?: return
+        val currentSong = audioList.getOrNull(songIndex) ?: return
+        song = currentSong
         val picUrl = if (!TextUtils.isEmpty(currentSong.local_thumbnail)) {
             currentSong.local_thumbnail
         } else {
             SharedUtils.server + "pic/" + currentSong.pic_id
         }
-        lastPosition = song_index
-        if (SharedUtils.getShuffle(this)) {
-            pager?.setCurrentItem(song_index, false)
-        } else {
-            pager?.setCurrentItem(song_index, true)
+        songTitle.value = currentSong.name
+        songArtist.value = TextUtils.join(", ", currentSong.artist)
+        coverUrl.value = picUrl.orEmpty()
+        val service = player_service
+        if (service != null && service.isPlaying()) {
+            durationMs.value = service.duration().toInt()
+            durationText.value = SharedUtils.makeShortTimeString(applicationContext, service.duration() / 1000)
         }
-        GlideApp.with(applicationContext)
-            .asBitmap()
-            .load(picUrl)
-            .into(object : SimpleTarget<Bitmap>() {
-                override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
-                    Palette.from(resource).generate { palette ->
-                        setUpBackgroundColor(header_view, palette)
-                    }
-                }
-            })
-        songtitle?.text = currentSong.name
-        songtitle?.isSelected = true
-        songartist?.text = TextUtils.join(", ", currentSong.artist)
-        if (playPauseFloating != null) {
-            playPauseFloating?.setImageDrawable(playPauseDrawable)
-            playPauseDrawable.transformToPause(false)
-        }
-        if (songduration != null) {
-            val service = player_service
-            if (service != null && service.isPlaying()) {
-                songduration?.text = SharedUtils.makeShortTimeString(applicationContext, service.duration() / 1000)
-            }
-        }
-        if (mProgress != null) {
-            val service = player_service
-            if (service != null && service.isPlaying()) {
-                mProgress?.max = service.duration().toInt()
-            }
-            progressHandler.removeCallbacks(updateProgress)
-            progressHandler.postDelayed(updateProgress, 10)
-        }
-        setSeekBarListener()
+        progressHandler.removeCallbacks(updateProgress)
+        progressHandler.postDelayed(updateProgress, 10)
     }
 
-    fun skipToPrevious() {
+    private fun skipToPrevious() {
         mainHandler.postDelayed({
             player_service?.skipToPrevious()
-            song_index = player_service?.current_index() ?: song_index
+            songIndex = player_service?.current_index() ?: songIndex
             mainHandler.postDelayed(loadInfo, 10)
-            if (SharedUtils.getRepeatMode(applicationContext) != PlaybackMode.REPEAT && song_index == 0) {
-                previous?.isEnabled = false
-                previous?.alpha = 0.4f
-            } else {
-                next?.isEnabled = true
-                next?.alpha = 1f
-            }
         }, 200)
     }
 
-    fun skipToNext() {
+    private fun skipToNext() {
         mainHandler.postDelayed({
             player_service?.skipToNext()
-            song_index = player_service?.current_index() ?: song_index
+            songIndex = player_service?.current_index() ?: songIndex
             mainHandler.postDelayed(loadInfo, 10)
-            if (SharedUtils.getRepeatMode(applicationContext) != PlaybackMode.REPEAT &&
-                song_index == audioList.size - 1
-            ) {
-                next?.isEnabled = false
-                next?.alpha = 0.4f
-            } else {
-                previous?.isEnabled = true
-                previous?.alpha = 1f
-            }
         }, 200)
     }
 
-    fun setShuffle() {
-        if (SharedUtils.getShuffle(this)) {
-            shuffle?.alpha = 0.4f
-            SharedUtils.setShuffle(this, false)
-        } else {
-            shuffle?.alpha = 1f
-            SharedUtils.setShuffle(this, true)
-        }
+    private fun setShuffle() {
+        val next = !SharedUtils.getShuffle(this)
+        SharedUtils.setShuffle(this, next)
+        shuffleEnabled.value = next
     }
 
-    fun setRepeatMode() {
+    private fun setRepeatMode() {
         when (SharedUtils.getRepeatMode(this)) {
             PlaybackMode.NORMAL -> {
-                repeat?.setImageResource(R.drawable.ic_repeat_black_24dp)
-                repeat?.alpha = 1f
                 SharedUtils.setRepeatMode(this, PlaybackMode.REPEAT)
                 player_service?.setLoop(false)
             }
             PlaybackMode.REPEAT -> {
-                repeat?.setImageResource(R.drawable.ic_repeat_one_black_24dp)
-                repeat?.alpha = 1f
                 SharedUtils.setRepeatMode(this, PlaybackMode.REPEAT_ONE)
                 player_service?.setLoop(true)
             }
             PlaybackMode.REPEAT_ONE -> {
-                repeat?.setImageResource(R.drawable.ic_repeat_black_24dp)
-                repeat?.alpha = 0.4f
                 SharedUtils.setRepeatMode(this, PlaybackMode.NORMAL)
                 player_service?.setLoop(false)
             }
         }
-    }
-
-    private fun setSeekBarListener() {
-        mProgress?.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar, i: Int, b: Boolean) {
-                if (b) {
-                    resetLyricsView()
-                    player_service?.seek(i)
-                }
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar) {
-            }
-
-            override fun onStopTrackingTouch(seekBar: SeekBar) {
-            }
-        })
+        repeatMode.value = SharedUtils.getRepeatMode(this)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
@@ -597,24 +413,139 @@ class NowPlayingActivity : BaseActivity() {
         }
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        return super.onCreateOptionsMenu(menu)
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == android.R.id.home) {
-            supportFinishAfterTransition()
-            return true
-        }
-        return super.onOptionsItemSelected(item)
-    }
-
     companion object {
         const val Broadcast_PLAY_NEW_AUDIO = "com.jgm90.cloudmusic.PlayNewAudio"
-        const val SONG_OBJECT = "song_model"
-        const val LYRICS_OBJECT = "lyrics_model"
 
         @JvmField
         var audioList: MutableList<SongModel> = mutableListOf()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NowPlayingScreen(
+    songTitle: String,
+    songArtist: String,
+    coverUrl: String,
+    isPlaying: Boolean,
+    shuffleEnabled: Boolean,
+    repeatMode: PlaybackMode,
+    progressMs: Int,
+    durationMs: Int,
+    elapsedText: String,
+    durationText: String,
+    currentLyric: String,
+    nextLyric: String,
+    onBack: () -> Unit,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    onSeekChange: (Int) -> Unit,
+    onSeekEnd: () -> Unit,
+) {
+    val sliderMax = if (durationMs > 0) durationMs else 1
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(text = songTitle.ifEmpty { "Reproduciendo" }) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_keyboard_arrow_down_24dp),
+                            contentDescription = null,
+                        )
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            AsyncImage(
+                model = coverUrl,
+                contentDescription = null,
+                modifier = Modifier.size(240.dp),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(text = songTitle, style = MaterialTheme.typography.titleMedium)
+            Text(text = songArtist, style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(16.dp))
+            Slider(
+                value = progressMs.coerceIn(0, sliderMax).toFloat(),
+                onValueChange = { onSeekChange(it.toInt()) },
+                onValueChangeFinished = onSeekEnd,
+                valueRange = 0f..sliderMax.toFloat(),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(text = elapsedText, style = MaterialTheme.typography.labelSmall)
+                Text(text = durationText, style = MaterialTheme.typography.labelSmall)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onShuffle, modifier = Modifier.alpha(if (shuffleEnabled) 1f else 0.4f)) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_shuffle_black_24dp),
+                        contentDescription = null,
+                    )
+                }
+                IconButton(onClick = onPrevious) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_skip_previous),
+                        contentDescription = null,
+                    )
+                }
+                IconButton(onClick = onPlayPause) {
+                    Icon(
+                        painter = painterResource(
+                            if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                    )
+                }
+                IconButton(onClick = onNext) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_skip_next),
+                        contentDescription = null,
+                    )
+                }
+                IconButton(onClick = onRepeat) {
+                    val iconRes = when (repeatMode) {
+                        PlaybackMode.NORMAL, PlaybackMode.REPEAT -> R.drawable.ic_repeat_black_24dp
+                        PlaybackMode.REPEAT_ONE -> R.drawable.ic_repeat_one_black_24dp
+                    }
+                    Icon(
+                        painter = painterResource(iconRes),
+                        contentDescription = null,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = if (currentLyric.isNotEmpty()) currentLyric else "No lyrics found",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            if (nextLyric.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = nextLyric,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
     }
 }

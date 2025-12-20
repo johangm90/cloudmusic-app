@@ -1,116 +1,99 @@
 package com.jgm90.cloudmusic.feature.home.presentation
 
 import android.app.DownloadManager
+import android.content.Intent
 import android.content.pm.PackageInfo
-import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
-import android.text.Html
-import android.util.Log
-import android.view.MenuItem
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import androidx.core.text.HtmlCompat
+import androidx.lifecycle.lifecycleScope
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.viewinterop.AndroidView
+import android.text.method.LinkMovementMethod
 import android.widget.TextView
-import androidx.appcompat.app.ActionBarDrawerToggle
-import androidx.core.view.GravityCompat
-import com.afollestad.materialdialogs.MaterialDialog
-import com.google.android.material.navigation.NavigationView
+import androidx.compose.material3.ExperimentalMaterial3Api
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.DownloadEvent
 import com.jgm90.cloudmusic.core.app.BaseActivity
-import com.jgm90.cloudmusic.databinding.ActivityMainBinding
-import com.jgm90.cloudmusic.feature.search.presentation.SearchFragment
-import com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistFragment
+import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import com.jgm90.cloudmusic.core.util.SharedUtils
-import androidx.lifecycle.lifecycleScope
+import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
+import com.jgm90.cloudmusic.feature.playback.presentation.PlaybackControlsBar
+import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
+import com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistDetailActivity
+import com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistScreen
+import com.jgm90.cloudmusic.feature.search.presentation.SearchScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
-import androidx.core.net.toUri
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedListener {
-    private val SF_TAG = "sf_tag"
-    private val PL_TAG = "pl_tag"
-    private var searchFragment: SearchFragment? = null
-    private var playlistFragment: PlaylistFragment? = null
+class MainActivity : BaseActivity() {
     private var packageInfo: PackageInfo? = null
     private var eventJobs: List<Job> = emptyList()
-    private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.AppTheme_NoActionBar)
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        val toolbar = binding.appBarMain.toolbar
-        setSupportActionBar(toolbar)
-        val drawer = binding.drawerLayout
-        val toggle = ActionBarDrawerToggle(
-            this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close
-        )
-        drawer.addDrawerListener(toggle)
-        toggle.syncState()
-        val navigationView = binding.navView
-        navigationView.setNavigationItemSelectedListener(this)
-        try {
-            val headerView = navigationView.inflateHeaderView(R.layout.nav_header_main)
-            val lbl_version = headerView.findViewById<TextView>(R.id.lbl_version)
-            packageInfo = packageManager.getPackageInfo(getPackageName(), 0)
-            lbl_version.text = "v" + packageInfo!!.versionName
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        if (savedInstanceState == null) {
-            searchFragment = SearchFragment()
-            playlistFragment = PlaylistFragment()
-        } else {
-            searchFragment =
-                supportFragmentManager.findFragmentByTag(SF_TAG) as SearchFragment?
-            if (searchFragment == null) {
-                searchFragment = SearchFragment()
-            }
-            playlistFragment =
-                supportFragmentManager.findFragmentByTag(PL_TAG) as PlaylistFragment?
-            if (playlistFragment == null) {
-                playlistFragment = PlaylistFragment()
-            }
-        }
-        showChangelog()
-    }
+        packageInfo = runCatching {
+            packageManager.getPackageInfo(packageName, 0)
+        }.getOrNull()
+        val versionName = packageInfo?.versionName.orEmpty()
+        val shouldShowChangelog = SharedUtils.get_version(this) != versionName
 
-    fun showChangelog() {
-        if (SharedUtils.get_version(this) != packageInfo!!.versionName) {
-            MaterialDialog.Builder(this)
-                .title("Changelog")
-                .content(Html.fromHtml(getString(R.string.changelog)))
-                .cancelable(false)
-                .positiveText("Cerrar")
-                .onPositive { _, _ ->
-                    SharedUtils.set_version(
-                        this@MainActivity,
-                        packageInfo!!.versionName
-                    )
-                }
-                .contentLineSpacing(1.6f)
-                .show()
-        }
-    }
-
-    @Deprecated("")
-    override fun onBackPressed() {
-        super.onBackPressed()
-        val drawer = binding.drawerLayout
-        if (drawer.isDrawerOpen(GravityCompat.START)) {
-            drawer.closeDrawer(GravityCompat.START)
-        } else {
-            moveTaskToBack(true)
+        setContent {
+            CloudMusicTheme {
+                val showPlayback by playbackControlsVisible
+                MainContent(
+                    versionName = versionName,
+                    showChangelog = shouldShowChangelog,
+                    showPlayback = showPlayback,
+                    onChangelogDismiss = {
+                        SharedUtils.set_version(this@MainActivity, versionName)
+                    },
+                    onOpenNowPlaying = { openNowPlaying() },
+                    onOpenNowPlayingWithList = { index, list -> openNowPlaying(index, list) },
+                    onOpenPlaylist = { playlist -> openPlaylistDetail(playlist) },
+                )
+            }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        if (isChangingConfigurations) {
-            Log.i("App", "Main Activity is changing configurations")
-        } else {
+        if (!isChangingConfigurations) {
             player_service?.stopSelf()
         }
     }
@@ -131,55 +114,25 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
         eventJobs = emptyList()
     }
 
-    override fun onNavigationItemSelected(item: MenuItem): Boolean {
-        val unicode = 0x2764
-        val emoji = getEmojiByUnicode(unicode)
-        val id = item.getItemId()
-        if (id == R.id.nav_buscar) {
-            showSearchFragment()
-        } else if (id == R.id.nav_playlists) {
-            showPlaylistFragment()
-        } else if (id == R.id.nav_about) {
-            MaterialDialog.Builder(this)
-                .title(R.string.about)
-                .positiveText("Cerrar")
-                .content(Html.fromHtml("<b>Cloud Music</b>, made with " + emoji + " by <br/><b>Johan Guerreros</b>."))
-                .contentLineSpacing(1.6f)
-                .show()
-        }
-        val drawer = binding.drawerLayout
-        drawer.closeDrawer(GravityCompat.START)
-        return true
+    private fun openNowPlaying(index: Int, list: List<com.jgm90.cloudmusic.core.model.SongModel>) {
+        val intent = Intent(this, NowPlayingActivity::class.java)
+        intent.putExtra("SONG_INDEX", index)
+        NowPlayingActivity.audioList = list.toMutableList()
+        startActivity(intent)
     }
 
-    fun getEmojiByUnicode(unicode: Int): String {
-        return String(Character.toChars(unicode))
+    private fun openNowPlaying() {
+        val intent = Intent(this, NowPlayingActivity::class.java)
+        startActivity(intent)
     }
 
-    private fun showSearchFragment() {
-        val ft = supportFragmentManager.beginTransaction()
-        if (searchFragment!!.isAdded) {
-            ft.show(searchFragment!!)
-        } else {
-            ft.add(R.id.container_body, searchFragment!!, SF_TAG)
-        }
-        if (playlistFragment!!.isAdded) {
-            ft.hide(playlistFragment!!)
-        }
-        ft.commit()
-    }
-
-    private fun showPlaylistFragment() {
-        val ft = supportFragmentManager.beginTransaction()
-        if (playlistFragment!!.isAdded) {
-            ft.show(playlistFragment!!)
-        } else {
-            ft.add(R.id.container_body, playlistFragment!!, PL_TAG)
-        }
-        if (searchFragment!!.isAdded) {
-            ft.hide(searchFragment!!)
-        }
-        ft.commit()
+    private fun openPlaylistDetail(playlist: PlaylistModel) {
+        val intent = Intent(this, PlaylistDetailActivity::class.java)
+        intent.putExtra("PLAYLIST_ID", playlist.playlist_id)
+        intent.putExtra("PLAYLIST_NAME", playlist.name)
+        intent.putExtra("PLAYLIST_COUNT", playlist.song_count)
+        intent.putExtra("PLAYLIST_OFFLINE", playlist.offline)
+        startActivity(intent)
     }
 
     private fun download(event: DownloadEvent) {
@@ -190,4 +143,179 @@ class MainActivity : BaseActivity(), NavigationView.OnNavigationItemSelectedList
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
         downloadManager.enqueue(request)
     }
+}
+
+private enum class HomeDestination {
+    Search,
+    Playlists,
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MainContent(
+    versionName: String,
+    showChangelog: Boolean,
+    showPlayback: Boolean,
+    onChangelogDismiss: () -> Unit,
+    onOpenNowPlaying: () -> Unit,
+    onOpenNowPlayingWithList: (Int, List<com.jgm90.cloudmusic.core.model.SongModel>) -> Unit,
+    onOpenPlaylist: (PlaylistModel) -> Unit,
+) {
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    var destination by remember { mutableStateOf(HomeDestination.Search) }
+    var showAbout by remember { mutableStateOf(false) }
+    var showChangelogDialog by remember { mutableStateOf(showChangelog) }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(
+                modifier = Modifier.fillMaxHeight(),
+            ) {
+                DrawerHeader(versionName = versionName)
+                NavigationDrawerItem(
+                    label = { Text(text = stringResource(id = R.string.search)) },
+                    selected = destination == HomeDestination.Search,
+                    onClick = {
+                        destination = HomeDestination.Search
+                        scope.launch { drawerState.close() }
+                    },
+                    icon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_search_black_24dp),
+                            contentDescription = null,
+                        )
+                    },
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = stringResource(id = R.string.playlists)) },
+                    selected = destination == HomeDestination.Playlists,
+                    onClick = {
+                        destination = HomeDestination.Playlists
+                        scope.launch { drawerState.close() }
+                    },
+                    icon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_library_music_black_24dp),
+                            contentDescription = null,
+                        )
+                    },
+                )
+                NavigationDrawerItem(
+                    label = { Text(text = stringResource(id = R.string.about)) },
+                    selected = false,
+                    onClick = {
+                        showAbout = true
+                        scope.launch { drawerState.close() }
+                    },
+                    icon = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_info_black_24dp),
+                            contentDescription = null,
+                        )
+                    },
+                )
+            }
+        },
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = when (destination) {
+                                HomeDestination.Search -> stringResource(R.string.search)
+                                HomeDestination.Playlists -> stringResource(R.string.playlists)
+                            }
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_more_vert_black_24dp),
+                                contentDescription = null,
+                            )
+                        }
+                    },
+                )
+            },
+            bottomBar = {
+                if (showPlayback) {
+                    PlaybackControlsBar(onOpenNowPlaying = onOpenNowPlaying)
+                }
+            }
+        ) { padding ->
+            Box(modifier = Modifier.padding(padding)) {
+                when (destination) {
+                    HomeDestination.Search -> SearchScreen(onOpenNowPlaying = onOpenNowPlayingWithList)
+                    HomeDestination.Playlists -> PlaylistScreen(onOpenPlaylist = onOpenPlaylist)
+                }
+            }
+        }
+    }
+
+    if (showAbout) {
+        AlertDialog(
+            onDismissRequest = { showAbout = false },
+            title = { Text(text = stringResource(id = R.string.about)) },
+            text = { HtmlText(html = stringResource(id = R.string.about_body)) },
+            confirmButton = {
+                TextButton(onClick = { showAbout = false }) { Text(text = "OK") }
+            },
+        )
+    }
+
+    if (showChangelogDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showChangelogDialog = false
+                onChangelogDismiss()
+            },
+            title = { Text(text = "Changelog") },
+            text = {
+                HtmlText(html = stringResource(id = R.string.changelog))
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showChangelogDialog = false
+                    onChangelogDismiss()
+                }) { Text(text = "OK") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun DrawerHeader(versionName: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = stringResource(id = R.string.app_name),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        if (versionName.isNotEmpty()) {
+            Text(
+                text = "v$versionName",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HtmlText(html: String) {
+    AndroidView(
+        factory = { context ->
+            TextView(context).apply {
+                text = HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_LEGACY)
+                movementMethod = LinkMovementMethod.getInstance()
+            }
+        },
+    )
 }

@@ -1,29 +1,18 @@
 package com.jgm90.cloudmusic.feature.playlist.presentation
 
+import android.content.Intent
 import android.os.Bundle
-import android.os.Parcelable
 import android.text.TextUtils
 import android.util.Log
-import android.view.MenuItem
-import android.view.View
-import android.widget.CompoundButton
-import androidx.appcompat.widget.Toolbar
-import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.core.app.BaseActivity
-import com.jgm90.cloudmusic.core.network.RestInterface
-import com.jgm90.cloudmusic.databinding.ActivityPlaylistDetailBinding
-import com.jgm90.cloudmusic.feature.playlist.presentation.adapter.SongAdapter
-import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
-import com.jgm90.cloudmusic.feature.playlist.presentation.contract.OnStartDragListener
-import com.jgm90.cloudmusic.feature.playlist.presentation.listener.ItemTouchCallback
-import com.jgm90.cloudmusic.core.model.SongModel
-import com.jgm90.cloudmusic.core.ui.decoration.Divider
-import com.jgm90.cloudmusic.core.util.SharedUtils
-import com.jgm90.cloudmusic.feature.playlist.presentation.viewmodel.PlaylistViewModel
+import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import com.jgm90.cloudmusic.core.app.BaseActivity
+import com.jgm90.cloudmusic.core.model.SongModel
+import com.jgm90.cloudmusic.core.network.RestInterface
+import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
+import com.jgm90.cloudmusic.core.util.SharedUtils
+import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
+import com.jgm90.cloudmusic.feature.playlist.presentation.viewmodel.PlaylistViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -37,72 +26,69 @@ import java.io.InputStream
 import java.io.OutputStream
 
 @AndroidEntryPoint
-class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener {
-    private lateinit var binding: ActivityPlaylistDetailBinding
-    private val contentBinding get() = binding.playlistDetail
+class PlaylistDetailActivity : BaseActivity() {
     @Inject
     lateinit var restInterface: RestInterface
     private val viewModel by viewModels<PlaylistViewModel>()
-    var search_query: String? = null
-    var listState: Parcelable? = null
-    private var mAdapter: SongAdapter? = null
-    private var mModel: MutableList<SongModel>? = null
-    private var mLayoutManager: RecyclerView.LayoutManager? = null
 
-    private var id = 0
-
-    private var itemTouchHelper: ItemTouchHelper? = null
+    private var playlistId = 0
+    private var playlistName = ""
+    private var playlistOffline = 0
+    private var playlistCount = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityPlaylistDetailBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        val toolbar = binding.toolbar
-        setSupportActionBar(toolbar)
-        if (supportActionBar != null) {
-            supportActionBar!!.setDisplayHomeAsUpEnabled(true)
-        }
-        mLayoutManager = LinearLayoutManager(this)
-        contentBinding.rvPlaylist.layoutManager = mLayoutManager
-        contentBinding.rvPlaylist.setHasFixedSize(true)
-        contentBinding.rvPlaylist.addItemDecoration(Divider(this))
-        contentBinding.rvPlaylist.itemAnimator?.addDuration = SharedUtils.rv_anim_duration.toLong()
-        contentBinding.rvPlaylist.adapter = null
-        mModel = ArrayList()
+
         val extras = intent.extras
-        if (extras != null) {
-            id = extras.getInt("PLAYLIST_ID")
-            val name = extras.getString("PLAYLIST_NAME")
-            val count = extras.getInt("PLAYLIST_COUNT")
-            val offline = extras.getInt("PLAYLIST_OFFLINE")
-            reload(id)
-            title = name
-            if (count == 0) {
-                contentBinding.rlOffline.visibility = View.GONE
-            } else {
-                contentBinding.rlOffline.visibility = View.VISIBLE
-            }
-            if (offline == 1) {
-                contentBinding.sbOffline.isChecked = true
-                downloadPlaylist()
-            } else {
-                contentBinding.sbOffline.isChecked = false
+        if (extras == null) {
+            finish()
+            return
+        }
+
+        playlistId = extras.getInt("PLAYLIST_ID")
+        playlistName = extras.getString("PLAYLIST_NAME").orEmpty()
+        playlistCount = extras.getInt("PLAYLIST_COUNT")
+        playlistOffline = extras.getInt("PLAYLIST_OFFLINE")
+
+        setContent {
+            CloudMusicTheme {
+                PlaylistDetailScreen(
+                    playlistId = playlistId,
+                    playlistName = playlistName,
+                    playlistOffline = playlistOffline,
+                    showOfflineToggle = playlistCount > 0,
+                    onBack = { finish() },
+                    onPlaySong = { index, songs -> openNowPlaying(index, songs) },
+                    onDownloadSong = { song -> downloadSongAssets(song) },
+                    onDeleteSong = { song ->
+                        viewModel.deleteSong(song) {}
+                    },
+                    onToggleOffline = { offline ->
+                        val offlineValue = if (offline) 1 else 0
+                        viewModel.updatePlaylistOffline(playlistId, offlineValue) {
+                            if (offline) {
+                                downloadPlaylist()
+                            }
+                        }
+                    },
+                )
             }
         }
-        contentBinding.sbOffline.setOnCheckedChangeListener(object : CompoundButton.OnCheckedChangeListener {
-            override fun onCheckedChanged(buttonView: CompoundButton, b: Boolean) {
-                val offlineValue = if (b) 1 else 0
-                viewModel.updatePlaylistOffline(id, offlineValue) {
-                    if (b) {
-                        downloadPlaylist()
-                    }
-                }
-            }
-        })
+
+        if (playlistOffline == 1) {
+            downloadPlaylist()
+        }
+    }
+
+    private fun openNowPlaying(index: Int, songs: List<SongModel>) {
+        val intent = Intent(this, NowPlayingActivity::class.java)
+        intent.putExtra("SONG_INDEX", index)
+        NowPlayingActivity.audioList = songs.toMutableList()
+        startActivity(intent)
     }
 
     private fun downloadPlaylist() {
-        viewModel.loadSongs(id) { songs ->
+        viewModel.loadSongs(playlistId) { songs ->
             if (songs.isNotEmpty()) {
                 for (song in songs) {
                     if (!TextUtils.isEmpty(song.local_file)) {
@@ -129,7 +115,13 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
         }
     }
 
-    fun downloadSong(song: SongModel) {
+    private fun downloadSongAssets(song: SongModel) {
+        downloadSong(song)
+        downloadThumbnail(song)
+        downloadLyric(song)
+    }
+
+    private fun downloadSong(song: SongModel) {
         CoroutineScope(Dispatchers.IO).launch {
             val songUrl = SharedUtils.server + "play/" + song.id + "/320"
             val filename = song.id + ".mp3"
@@ -163,7 +155,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
         }
     }
 
-    fun downloadThumbnail(song: SongModel) {
+    private fun downloadThumbnail(song: SongModel) {
         CoroutineScope(Dispatchers.IO).launch {
             val coverUrl = SharedUtils.server + "pic/" + song.pic_id
             val filename = song.pic_id + ".jpg"
@@ -197,7 +189,7 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
         }
     }
 
-    fun downloadLyric(song: SongModel) {
+    private fun downloadLyric(song: SongModel) {
         CoroutineScope(Dispatchers.IO).launch {
             runCatching { restInterface.getLyrics(song.lyric_id) }
                 .onSuccess { lyric ->
@@ -212,70 +204,5 @@ class PlaylistDetailActivity : BaseActivity(), DialogCaller, OnStartDragListener
                     Log.e("App", "Fail to get lyrics")
                 }
         }
-    }
-
-    private fun setUpTouch() {
-        val adapter = mAdapter ?: return
-        val callback: ItemTouchHelper.Callback = ItemTouchCallback(adapter)
-        itemTouchHelper = ItemTouchHelper(callback)
-        itemTouchHelper!!.attachToRecyclerView(contentBinding.rvPlaylist)
-    }
-
-    public override fun onResume() {
-        super.onResume()
-        if (listState != null) {
-            mLayoutManager!!.onRestoreInstanceState(listState)
-        }
-    }
-
-    fun reload(id: Int) {
-        contentBinding.messageView.visibility = View.GONE
-        mModel?.clear()
-        contentBinding.rvPlaylist.adapter = null
-        getSongs(id)
-    }
-
-    fun getSongs(id: Int) {
-        viewModel.loadSongs(id) { model ->
-            val list = model.toMutableList()
-            mModel = list
-            if (list.isNotEmpty()) {
-                mAdapter = SongAdapter(
-                    list,
-                    this@PlaylistDetailActivity,
-                    this@PlaylistDetailActivity,
-                    this@PlaylistDetailActivity,
-                    onSongUpdated = { viewModel.updateSong(it) },
-                    onSongDeleted = { song -> viewModel.deleteSong(song) { onPositiveCall() } },
-                )
-                contentBinding.rvPlaylist.adapter = mAdapter
-                mAdapter!!.notifyItemChanged(0)
-                setUpTouch()
-            } else {
-                SharedUtils.showMessage(
-                    contentBinding.messageView,
-                    R.drawable.ic_info_black_24dp,
-                    R.string.no_songs
-                )
-            }
-        }
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            android.R.id.home -> {
-                onBackPressed()
-                return true
-            }
-        }
-        return super.onOptionsItemSelected(item)
-    }
-
-    override fun onPositiveCall() {
-        reload(id)
-    }
-
-    override fun onDrag(viewHolder: RecyclerView.ViewHolder) {
-        itemTouchHelper!!.startDrag(viewHolder)
     }
 }

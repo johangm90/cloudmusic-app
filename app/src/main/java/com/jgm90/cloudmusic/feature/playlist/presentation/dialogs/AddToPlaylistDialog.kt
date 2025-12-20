@@ -1,106 +1,61 @@
 package com.jgm90.cloudmusic.feature.playlist.presentation.dialogs
 
-import android.content.Context
-import android.view.LayoutInflater
-import android.widget.Toast
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.afollestad.materialdialogs.DialogAction
-import com.afollestad.materialdialogs.MaterialDialog
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.jgm90.cloudmusic.core.model.SongModel
-import com.jgm90.cloudmusic.core.ui.decoration.Divider
-import com.jgm90.cloudmusic.databinding.DialogAddToPlaylistBinding
-import com.jgm90.cloudmusic.feature.playlist.presentation.adapter.PlaylistsAdapter
-import com.jgm90.cloudmusic.feature.playlist.presentation.contract.DialogCaller
-import com.jgm90.cloudmusic.feature.playlist.presentation.contract.ListCaller
+import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
 import com.jgm90.cloudmusic.feature.playlist.presentation.viewmodel.PlaylistViewModel
 
-class AddToPlaylistDialog(
-    private val context: Context,
-    private val viewModel: PlaylistViewModel,
-) : ListCaller, DialogCaller {
-    private var dialog: MaterialDialog? = null
-    private var binding: DialogAddToPlaylistBinding? = null
-    private var adapter: PlaylistsAdapter? = null
-    private var searchObj: SongModel? = null
-    private var songObj: SongModel? = null
+@Composable
+fun AddToPlaylistDialog(
+    song: SongModel,
+    viewModel: PlaylistViewModel,
+    onDismiss: () -> Unit,
+) {
+    var playlists by remember { mutableStateOf<List<PlaylistModel>>(emptyList()) }
 
-    fun show(obj: SongModel) {
-        searchObj = obj
-        binding = DialogAddToPlaylistBinding.inflate(LayoutInflater.from(context))
-        val dialogBuilder = MaterialDialog.Builder(context)
-            .title("Add to playlist")
-            .customView(binding!!.root, false)
-            .cancelable(false)
-            .autoDismiss(false)
-            .positiveText("")
-            .negativeText("CERRAR")
-            .onNegative(object : MaterialDialog.SingleButtonCallback {
-                override fun onClick(dialog: MaterialDialog, which: DialogAction) {
-                    dialog.dismiss()
+    LaunchedEffect(Unit) {
+        viewModel.loadPlaylists { playlists = it }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = "Add to playlist") },
+        text = {
+            LazyColumn {
+                items(playlists) { playlist ->
+                    TextButton(
+                        onClick = {
+                            viewModel.addSongToPlaylist(song, playlist.playlist_id) {
+                                onDismiss()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                    ) {
+                        Text(text = playlist.name)
+                    }
                 }
-            })
-        dialog = dialogBuilder.build()
-        dialog?.show()
-        bind()
-    }
-
-    private fun bind() {
-        val dialogBinding = binding ?: return
-        dialogBinding.btnAdd.setOnClickListener {
-            PlaylistDialog(
-                context,
-                this,
-                onSave = { model -> viewModel.savePlaylist(model) { reload() } },
-            ).show()
-        }
-        dialogBinding.rvPlaylists.adapter = null
-        dialogBinding.rvPlaylists.layoutManager = LinearLayoutManager(context)
-        dialogBinding.rvPlaylists.setHasFixedSize(true)
-        dialogBinding.rvPlaylists.addItemDecoration(Divider(context))
-        dialogBinding.rvPlaylists.itemAnimator?.addDuration =
-            com.jgm90.cloudmusic.core.util.SharedUtils.rv_anim_duration.toLong()
-        reload()
-    }
-
-    private fun reload() {
-        viewModel.loadPlaylists { playlists ->
-            if (playlists.isNotEmpty()) {
-                adapter = PlaylistsAdapter(
-                    playlists.toMutableList(),
-                    context,
-                    listListener = this@AddToPlaylistDialog as ListCaller
-                )
-                binding?.rvPlaylists?.adapter = adapter
-                adapter?.notifyItemChanged(0)
             }
-        }
-    }
-
-    override fun onListItemClick(itemId: Int) {
-        val searchItem = searchObj ?: return
-        songObj = SongModel(
-            searchItem.id,
-            searchItem.name,
-            searchItem.artist,
-            searchItem.album,
-            searchItem.pic_id,
-            searchItem.url_id,
-            searchItem.lyric_id,
-            searchItem.source,
-            "",
-            "",
-            "",
-            0,
-            com.jgm90.cloudmusic.core.util.SharedUtils.dateTime,
-            itemId,
-        )
-        viewModel.addSongToPlaylist(songObj!!, itemId) {
-            Toast.makeText(context, "Item added to playlist", Toast.LENGTH_SHORT).show()
-            dialog?.dismiss()
-        }
-    }
-
-    override fun onPositiveCall() {
-        reload()
-    }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "Cerrar")
+            }
+        },
+    )
 }

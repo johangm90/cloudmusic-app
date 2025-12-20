@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.androidx.dynamicanimation)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.hilt.android)
+    implementation(libs.androidx.compose.material3)
     kapt(libs.hilt.compiler)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
@@ -76,6 +77,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.coil.compose)
 
     testImplementation(libs.junit)

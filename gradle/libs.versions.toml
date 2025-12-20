@@ -23,6 +23,7 @@ material = "1.13.0"
 preference = "1.2.1"
 navigation = "2.9.6"
 uiTextGoogleFonts = "1.10.0"
+material3 = "1.4.0"
 
 [libraries]
 androidx-cardview = { module = "androidx.cardview:cardview", version.ref = "cardview" }
@@ -57,6 +58,7 @@ hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hil
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

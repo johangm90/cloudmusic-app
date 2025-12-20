@@ -2,7 +2,9 @@ package com.jgm90.cloudmusic.core.di
 
 import android.content.Context
 import com.jgm90.cloudmusic.core.data.local.CloudMusicDatabase
+import com.jgm90.cloudmusic.core.data.local.dao.LikedSongDao
 import com.jgm90.cloudmusic.core.data.local.dao.PlaylistDao
+import com.jgm90.cloudmusic.core.data.local.dao.RecentSongDao
 import com.jgm90.cloudmusic.core.data.local.dao.SongDao
 import dagger.Module
 import dagger.Provides
@@ -25,4 +27,10 @@ object DatabaseModule {
 
     @Provides
     fun providePlaylistDao(database: CloudMusicDatabase): PlaylistDao = database.playlistDao()
+
+    @Provides
+    fun provideRecentSongDao(database: CloudMusicDatabase): RecentSongDao = database.recentSongDao()
+
+    @Provides
+    fun provideLikedSongDao(database: CloudMusicDatabase): LikedSongDao = database.likedSongDao()
 }

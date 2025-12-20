@@ -5,17 +5,21 @@ import android.content.Intent
 import android.content.pm.PackageInfo
 import android.os.Bundle
 import android.os.Environment
+import android.text.method.LinkMovementMethod
+import android.widget.TextView
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,27 +29,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import androidx.core.text.HtmlCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.ui.viewinterop.AndroidView
-import android.text.method.LinkMovementMethod
-import android.widget.TextView
-import androidx.compose.material3.ExperimentalMaterial3Api
 import com.jgm90.cloudmusic.R
+import com.jgm90.cloudmusic.core.app.BaseActivity
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.DownloadEvent
-import com.jgm90.cloudmusic.core.app.BaseActivity
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
 import com.jgm90.cloudmusic.feature.playback.presentation.PlaybackControlsBar
 import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
+import com.jgm90.cloudmusic.feature.playlist.presentation.LibraryScreen
+import com.jgm90.cloudmusic.feature.playlist.presentation.LikedSongsScreen
 import com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistDetailActivity
-import com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistScreen
+import com.jgm90.cloudmusic.feature.playlist.presentation.RecentlyPlayedScreen
 import com.jgm90.cloudmusic.feature.search.presentation.SearchScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
@@ -137,7 +137,9 @@ class MainActivity : BaseActivity() {
 
 private enum class HomeDestination {
     Search,
-    Playlists,
+    Library,
+    RecentlyPlayed,
+    LikedSongs,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -153,27 +155,34 @@ private fun MainContent(
     var destination by remember { mutableStateOf(HomeDestination.Search) }
     var showAbout by remember { mutableStateOf(false) }
     var showChangelogDialog by remember { mutableStateOf(showChangelog) }
+    val canNavigateBack =
+        destination == HomeDestination.RecentlyPlayed || destination == HomeDestination.LikedSongs
+    val showTopBar = !canNavigateBack
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = when (destination) {
-                            HomeDestination.Search -> stringResource(R.string.search)
-                            HomeDestination.Playlists -> stringResource(R.string.playlists)
-                        }
-                    )
-                },
-                actions = {
-                    IconButton(onClick = { showAbout = true }) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_info_black_24dp),
-                            contentDescription = null,
+            if (showTopBar) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = when (destination) {
+                                HomeDestination.Search -> stringResource(R.string.search)
+                                HomeDestination.Library -> stringResource(R.string.library)
+                                HomeDestination.RecentlyPlayed -> stringResource(R.string.recently_played)
+                                HomeDestination.LikedSongs -> stringResource(R.string.liked_songs)
+                            }
                         )
-                    }
-                },
-            )
+                    },
+                    actions = {
+                        IconButton(onClick = { showAbout = true }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_info_black_24dp),
+                                contentDescription = null,
+                            )
+                        }
+                    },
+                )
+            }
         },
         bottomBar = {
             Column {
@@ -193,15 +202,15 @@ private fun MainContent(
                         label = { Text(text = stringResource(R.string.search)) },
                     )
                     NavigationBarItem(
-                        selected = destination == HomeDestination.Playlists,
-                        onClick = { destination = HomeDestination.Playlists },
+                        selected = destination == HomeDestination.Library,
+                        onClick = { destination = HomeDestination.Library },
                         icon = {
                             Icon(
                                 painter = painterResource(R.drawable.ic_library_music_black_24dp),
                                 contentDescription = null,
                             )
                         },
-                        label = { Text(text = stringResource(R.string.playlists)) },
+                        label = { Text(text = stringResource(R.string.library)) },
                     )
                 }
             }
@@ -210,7 +219,21 @@ private fun MainContent(
         Box(modifier = Modifier.padding(padding)) {
             when (destination) {
                 HomeDestination.Search -> SearchScreen(onOpenNowPlaying = onOpenNowPlayingWithList)
-                HomeDestination.Playlists -> PlaylistScreen(onOpenPlaylist = onOpenPlaylist)
+                HomeDestination.Library -> LibraryScreen(
+                    onOpenRecent = { destination = HomeDestination.RecentlyPlayed },
+                    onOpenLiked = { destination = HomeDestination.LikedSongs },
+                    onOpenPlaylist = onOpenPlaylist,
+                )
+
+                HomeDestination.RecentlyPlayed -> RecentlyPlayedScreen(
+                    onBack = { destination = HomeDestination.Library },
+                    onOpenNowPlaying = onOpenNowPlayingWithList,
+                )
+
+                HomeDestination.LikedSongs -> LikedSongsScreen(
+                    onBack = { destination = HomeDestination.Library },
+                    onOpenNowPlaying = onOpenNowPlayingWithList,
+                )
             }
         }
     }

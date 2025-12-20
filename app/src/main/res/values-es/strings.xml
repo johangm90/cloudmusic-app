@@ -31,9 +31,17 @@
     <string name="search_message">Busqueda Cloud Music\n Busca tu canción favorita</string>
     <string name="search">Buscar</string>
     <string name="playlists">Playlists</string>
+    <string name="library">Biblioteca</string>
     <string name="edit">Editar</string>
     <string name="delete">Eliminar</string>
     <string name="download">Descargar</string>
+    <string name="cancel">Cancelar</string>
     <string name="no_songs">No hay canciones</string>
+    <string name="recently_played">Reproducidas recientemente</string>
+    <string name="liked_songs">Canciones favoritas</string>
+    <string name="no_recent_plays">Sin reproducciones recientes</string>
+    <string name="no_liked_songs">Sin canciones favoritas</string>
+    <string name="delete_playlist_title">Eliminar playlist</string>
+    <string name="delete_playlist_message">¿Seguro que deseas eliminar esta playlist?</string>
     <string name="title_activity_playlist_detail">Playlist</string>
 </resources>

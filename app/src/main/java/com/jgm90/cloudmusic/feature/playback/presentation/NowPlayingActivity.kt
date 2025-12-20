@@ -27,6 +27,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
@@ -50,6 +53,7 @@ import com.jgm90.cloudmusic.core.playback.Lyrics
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import com.jgm90.cloudmusic.core.util.SharedUtils
+import com.jgm90.cloudmusic.core.data.local.repository.LibraryRepository
 import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -75,6 +79,7 @@ class NowPlayingActivity : BaseActivity() {
     private val durationText = mutableStateOf("0:00")
     private val currentLyric = mutableStateOf("")
     private val nextLyric = mutableStateOf("")
+    private val isLiked = mutableStateOf(false)
 
     private var userSeeking = false
     private var lyricsJob: Job? = null
@@ -87,6 +92,8 @@ class NowPlayingActivity : BaseActivity() {
     private lateinit var mainHandler: Handler
     private lateinit var progressHandler: Handler
     private lateinit var lyricsHandler: Handler
+    @Inject
+    lateinit var libraryRepository: LibraryRepository
 
     private val updateProgress = object : Runnable {
         override fun run() {
@@ -203,12 +210,14 @@ class NowPlayingActivity : BaseActivity() {
                     durationText = durationText.value,
                     currentLyric = currentLyric.value,
                     nextLyric = nextLyric.value,
+                    isLiked = isLiked.value,
                     onBack = { finish() },
                     onPlayPause = { playOrPause() },
                     onPrevious = { skipToPrevious() },
                     onNext = { skipToNext() },
                     onShuffle = { setShuffle() },
                     onRepeat = { setRepeatMode() },
+                    onToggleLike = { toggleLike() },
                     onSeekChange = { value ->
                         userSeeking = true
                         progressMs.value = value
@@ -342,6 +351,17 @@ class NowPlayingActivity : BaseActivity() {
         } else {
             SharedUtils.server + "pic/" + currentSong.pic_id
         }
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                libraryRepository.addRecent(currentSong)
+            }
+        }
+        lifecycleScope.launch {
+            val liked = withContext(Dispatchers.IO) {
+                libraryRepository.isLiked(currentSong.id)
+            }
+            isLiked.value = liked
+        }
         songTitle.value = currentSong.name
         songArtist.value = TextUtils.join(", ", currentSong.artist)
         coverUrl.value = picUrl.orEmpty()
@@ -394,6 +414,16 @@ class NowPlayingActivity : BaseActivity() {
         repeatMode.value = SharedUtils.getRepeatMode(this)
     }
 
+    private fun toggleLike() {
+        val currentSong = song ?: return
+        lifecycleScope.launch {
+            val liked = withContext(Dispatchers.IO) {
+                libraryRepository.toggleLiked(currentSong)
+            }
+            isLiked.value = liked
+        }
+    }
+
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
         super.onRestoreInstanceState(savedInstanceState)
         serviceBound = savedInstanceState.getBoolean("serviceStatus")
@@ -436,12 +466,14 @@ private fun NowPlayingScreen(
     durationText: String,
     currentLyric: String,
     nextLyric: String,
+    isLiked: Boolean,
     onBack: () -> Unit,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onShuffle: () -> Unit,
     onRepeat: () -> Unit,
+    onToggleLike: () -> Unit,
     onSeekChange: (Int) -> Unit,
     onSeekEnd: () -> Unit,
 ) {
@@ -496,6 +528,12 @@ private fun NowPlayingScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                IconButton(onClick = onToggleLike) {
+                    Icon(
+                        imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = null,
+                    )
+                }
                 IconButton(onClick = onShuffle, modifier = Modifier.alpha(if (shuffleEnabled) 1f else 0.4f)) {
                     Icon(
                         painter = painterResource(R.drawable.ic_shuffle_black_24dp),

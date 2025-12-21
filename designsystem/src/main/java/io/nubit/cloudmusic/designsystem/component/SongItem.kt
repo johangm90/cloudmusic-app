@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -50,7 +50,7 @@ fun SongItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 16.dp)
+            .padding(top = 8.dp, bottom = 8.dp, start = 16.dp, end = 0.dp)
     ) {
         Log.d("COVER", "Image URL: $imageUrl")
         AsyncImage(
@@ -66,17 +66,24 @@ fun SongItem(
             modifier = Modifier.size(48.dp)
         )
         Column(
+            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.Start
         ) {
-            Text(text = songName)
+            Text(
+                text = songName,
+                maxLines = 1,
+                style = MaterialTheme.typography.titleSmall,
+                overflow = TextOverflow.Ellipsis
+            )
             Text(
                 text = artistName.joinToString(", "),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                maxLines = 1,
+                style = MaterialTheme.typography.bodySmall,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        Spacer(modifier = Modifier.weight(1f))
-
         Box {
             IconButton(onClick = { expanded = true }) {
                 Icon(

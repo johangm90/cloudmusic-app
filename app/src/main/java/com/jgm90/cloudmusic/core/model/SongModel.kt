@@ -20,7 +20,7 @@ data class SongModel(
 ) {
     fun getCoverThumbnail(): String {
         return if (pic_id != null) {
-            SharedUtils.server + "pic/" + pic_id + ".jpg"
+            SharedUtils.server + "pic/" + pic_id
         } else {
             ""
         }

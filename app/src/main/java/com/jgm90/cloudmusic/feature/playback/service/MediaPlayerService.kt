@@ -40,6 +40,7 @@ import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.IsPlayingEvent
 import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
+import com.jgm90.cloudmusic.core.event.PlaybackInfoEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
@@ -481,6 +482,7 @@ class MediaPlayerService : Service(),
                     it.start()
                 }
                 AppEventBus.postSticky(IsPlayingEvent(it.isPlaying))
+                publishPlaybackInfo(it.isPlaying)
             }
         } catch (_: Exception) {
         }
@@ -516,6 +518,7 @@ class MediaPlayerService : Service(),
                     it.start()
                 }
                 AppEventBus.postSticky(IsPlayingEvent(it.isPlaying))
+                publishPlaybackInfo(it.isPlaying)
             }
         } catch (_: Exception) {
         }
@@ -569,6 +572,7 @@ class MediaPlayerService : Service(),
         stopMedia()
         mediaPlayer?.reset()
         initMediaPlayer()
+        publishPlaybackInfo()
         buildNotification(PlaybackStatus.PLAYING)
     }
 
@@ -587,6 +591,7 @@ class MediaPlayerService : Service(),
         stopMedia()
         mediaPlayer?.reset()
         initMediaPlayer()
+        publishPlaybackInfo()
         buildNotification(PlaybackStatus.PLAYING)
     }
 
@@ -664,6 +669,7 @@ class MediaPlayerService : Service(),
             setMediaPlaybackState(PlaybackStateCompat.STATE_PAUSED)
             buildNotification(PlaybackStatus.PAUSED)
         }
+        publishPlaybackInfo(event.isPlaying)
     }
 
     private fun retrievedAudioFocus(): Boolean {
@@ -690,6 +696,7 @@ class MediaPlayerService : Service(),
                     .build(),
             )
         }
+        publishPlaybackInfo()
     }
 
     private fun createContentIntent(): PendingIntent {
@@ -705,6 +712,7 @@ class MediaPlayerService : Service(),
 
     private fun buildNotification(playbackStatus: PlaybackStatus) {
         call?.cancel()
+        publishPlaybackInfo()
         val notification = createNotification(playbackStatus)
         if (notification != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -720,7 +728,7 @@ class MediaPlayerService : Service(),
     }
 
     private fun createNotification(playbackStatus: PlaybackStatus): Notification? {
-        val active = requireNotNull(activeAudio)
+        val active = activeAudio ?: return null
         var notificationAction = R.drawable.ic_pause
         var playPauseAction: PendingIntent? = null
         var action = "pause"
@@ -734,7 +742,7 @@ class MediaPlayerService : Service(),
             action = "play"
         }
         val notificationManager =
-            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel("100", "playback", NotificationManager.IMPORTANCE_LOW)
         channel.description = "CloudMusic channel"
         channel.enableVibration(true)
@@ -808,6 +816,10 @@ class MediaPlayerService : Service(),
                 val request = Request.Builder().url(candidate).build()
                 httpClient.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
+                        Log.e(
+                            "MediaPlayerService",
+                            "Art request failed: ${response.code} ${response.message} ($candidate)"
+                        )
                         return@use null
                     }
                     val body = response.body
@@ -822,6 +834,26 @@ class MediaPlayerService : Service(),
             }
         }
         return null
+    }
+
+    private fun publishPlaybackInfo(isPlayingOverride: Boolean? = null) {
+        val current = activeAudio ?: song ?: return
+        val artUrl = if (!TextUtils.isEmpty(current.local_thumbnail)) {
+            current.local_thumbnail ?: ""
+        } else if (!TextUtils.isEmpty(current.pic_id)) {
+            SharedUtils.server + "pic/" + current.pic_id
+        } else {
+            ""
+        }
+        val isPlaying = isPlayingOverride ?: (mediaPlayer?.isPlaying == true)
+        AppEventBus.postSticky(
+            PlaybackInfoEvent(
+                title = current.name,
+                artist = TextUtils.join(", ", current.artist),
+                artUrl = artUrl,
+                isPlaying = isPlaying,
+            )
+        )
     }
 
     private fun removeNotification() {

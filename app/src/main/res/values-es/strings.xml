@@ -43,6 +43,7 @@
     <string name="no_songs">No hay canciones</string>
     <string name="recently_played">Reproducidas recientemente</string>
     <string name="liked_songs">Canciones favoritas</string>
+    <string name="settings">Ajustes</string>
     <string name="no_recent_plays">Sin reproducciones recientes</string>
     <string name="no_liked_songs">Sin canciones favoritas</string>
     <string name="delete_playlist_title">Eliminar playlist</string>

@@ -51,6 +51,7 @@ import com.jgm90.cloudmusic.feature.playlist.presentation.LikedSongsScreen
 import com.jgm90.cloudmusic.feature.playlist.presentation.PlaylistDetailActivity
 import com.jgm90.cloudmusic.feature.playlist.presentation.RecentlyPlayedScreen
 import com.jgm90.cloudmusic.feature.search.presentation.SearchScreen
+import com.jgm90.cloudmusic.feature.settings.presentation.screen.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 
@@ -141,6 +142,7 @@ private enum class HomeDestination {
     Library,
     RecentlyPlayed,
     LikedSongs,
+    Settings,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -157,7 +159,9 @@ private fun MainContent(
     var showAbout by remember { mutableStateOf(false) }
     var showChangelogDialog by remember { mutableStateOf(showChangelog) }
     val canNavigateBack =
-        destination == HomeDestination.RecentlyPlayed || destination == HomeDestination.LikedSongs
+        destination == HomeDestination.RecentlyPlayed ||
+        destination == HomeDestination.LikedSongs ||
+        destination == HomeDestination.Settings
     var searchExpanded by remember { mutableStateOf(false) }
     val showTopBar = !canNavigateBack && !(destination == HomeDestination.Search && searchExpanded)
 
@@ -174,14 +178,21 @@ private fun MainContent(
                                     HomeDestination.Library -> stringResource(R.string.library)
                                     HomeDestination.RecentlyPlayed -> stringResource(R.string.recently_played)
                                     HomeDestination.LikedSongs -> stringResource(R.string.liked_songs)
+                                    HomeDestination.Settings -> stringResource(R.string.settings)
                                 }
                             )
                         },
                         actions = {
+                            IconButton(onClick = { destination = HomeDestination.Settings }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_settings_black_24dp),
+                                    contentDescription = "Settings",
+                                )
+                            }
                             IconButton(onClick = { showAbout = true }) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_info_black_24dp),
-                                    contentDescription = null,
+                                    contentDescription = "About",
                                 )
                             }
                         },
@@ -262,6 +273,10 @@ private fun MainContent(
                     HomeDestination.LikedSongs -> LikedSongsScreen(
                         onBack = { destination = HomeDestination.Library },
                         onOpenNowPlaying = onOpenNowPlayingWithList,
+                    )
+
+                    HomeDestination.Settings -> SettingsScreen(
+                        onBack = { destination = HomeDestination.Search },
                     )
                 }
             }

@@ -9,8 +9,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -19,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,53 +60,77 @@ fun PlaybackControlsBar(
         }
     }
 
-    Row(
+    val accentGradient = Brush.linearGradient(
+        listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.tertiary
+        )
+    )
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.primary)
-            .padding(12.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(18.dp))
             .clickable { onOpenNowPlaying() },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.24f),
+        shadowElevation = 6.dp,
+        shape = RoundedCornerShape(18.dp),
     ) {
-        AsyncImage(
-            model = artUrl.value,
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-        )
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = title.value,
-                color = MaterialTheme.colorScheme.onPrimary,
-                maxLines = 1,
-                style = MaterialTheme.typography.titleMedium,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = subtitle.value,
-                color = MaterialTheme.colorScheme.onPrimary.copy(
-                    alpha = 0.6f,
-                ),
-                maxLines = 1,
-                style = MaterialTheme.typography.bodyMedium,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Spacer(modifier = Modifier.size(8.dp))
-        Icon(
-            painter = painterResource(
-                if (isPlaying.value) R.drawable.ic_pause else R.drawable.ic_play_arrow
-            ),
-            contentDescription = null,
-            tint = Color.White,
+        Row(
             modifier = Modifier
-                .size(32.dp)
-                .clickable {
-                    AppEventBus.post(PlayPauseEvent("From Playback Controls"))
-                },
-        )
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            AsyncImage(
+                model = artUrl.value,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = title.value,
+                    color = Color.White,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.titleMedium,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = subtitle.value,
+                    color = Color.White.copy(alpha = 0.65f),
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodyMedium,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(modifier = Modifier.size(4.dp))
+            Surface(
+                modifier = Modifier.size(44.dp),
+                shape = CircleShape,
+                color = Color.Transparent,
+                tonalElevation = 0.dp,
+            ) {
+                Icon(
+                    painter = painterResource(
+                        if (isPlaying.value) R.drawable.ic_pause else R.drawable.ic_play_arrow
+                    ),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(accentGradient, CircleShape)
+                        .padding(10.dp)
+                        .clickable {
+                            AppEventBus.post(PlayPauseEvent("From Playback Controls"))
+                        },
+                )
+            }
+        }
     }
 }

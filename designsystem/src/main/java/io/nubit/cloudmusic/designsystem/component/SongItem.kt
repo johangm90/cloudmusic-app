@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,72 +47,82 @@ fun SongItem(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(top = 8.dp, bottom = 8.dp, start = 16.dp, end = 0.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable(onClick = onClick),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
+        shape = RoundedCornerShape(16.dp),
+        tonalElevation = 2.dp,
+        shadowElevation = 4.dp,
     ) {
-        Log.d("COVER", "Image URL: $imageUrl")
-        AsyncImage(
-            model = imageUrl,
-            placeholder = painterResource(R.drawable.default_cover),
-            fallback = painterResource(R.drawable.default_cover),
-            error = painterResource(R.drawable.default_cover),
-            onError = {
-                Log.e("COVER", "Error loading image: ${it.result.throwable.message}")
-            },
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.size(48.dp)
-        )
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.Start
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
-            Text(
-                text = songName,
-                maxLines = 1,
-                style = MaterialTheme.typography.titleSmall,
-                overflow = TextOverflow.Ellipsis
+            Log.d("COVER", "Image URL: $imageUrl")
+            AsyncImage(
+                model = imageUrl,
+                placeholder = painterResource(R.drawable.default_cover),
+                fallback = painterResource(R.drawable.default_cover),
+                error = painterResource(R.drawable.default_cover),
+                onError = {
+                    Log.e("COVER", "Error loading image: ${it.result.throwable.message}")
+                },
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(RoundedCornerShape(12.dp)),
             )
-            Text(
-                text = artistName.joinToString(", "),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                maxLines = 1,
-                style = MaterialTheme.typography.bodySmall,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        Box {
-            IconButton(onClick = { expanded = true }) {
-                Icon(
-                    painterResource(R.drawable.ic_more_vert_outlined_24dp),
-                    contentDescription = "Opciones"
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = songName,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.titleSmall,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = artistName.joinToString(", "),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodySmall,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+            Box {
+                IconButton(onClick = { expanded = true }) {
+                    Icon(
+                        painterResource(R.drawable.ic_more_vert_outlined_24dp),
+                        contentDescription = "Opciones"
+                    )
+                }
 
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Download") },
-                    onClick = {
-                        expanded = false
-                        onDownloadClick()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Add to Playlist") },
-                    onClick = {
-                        expanded = false
-                        onAddToPlaylistClick()
-                    }
-                )
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Download") },
+                        onClick = {
+                            expanded = false
+                            onDownloadClick()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Add to Playlist") },
+                        onClick = {
+                            expanded = false
+                            onAddToPlaylistClick()
+                        }
+                    )
+                }
             }
         }
     }

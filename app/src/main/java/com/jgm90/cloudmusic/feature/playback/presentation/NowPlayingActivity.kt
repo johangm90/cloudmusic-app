@@ -11,31 +11,48 @@ import android.text.TextUtils
 import android.util.Log
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import coil3.compose.AsyncImage
@@ -61,6 +78,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @AndroidEntryPoint
 class NowPlayingActivity : BaseActivity() {
@@ -478,53 +502,165 @@ private fun NowPlayingScreen(
     onSeekEnd: () -> Unit,
 ) {
     val sliderMax = if (durationMs > 0) durationMs else 1
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(text = songTitle.ifEmpty { "Reproduciendo" }) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_keyboard_arrow_down_24dp),
-                            contentDescription = null,
-                        )
-                    }
-                },
+    val backgroundGradient = remember {
+        Brush.linearGradient(
+            listOf(
+                Color(0xFF0E1118),
+                Color(0xFF1C2C3C),
+                Color(0xFF0D3C3A)
             )
-        },
-    ) { padding ->
+        )
+    }
+    val softGlow = remember {
+        Brush.radialGradient(
+            colors = listOf(
+                Color(0xFF5EEAD4).copy(alpha = 0.35f),
+                Color.Transparent
+            )
+        )
+    }
+    val accentGradient = Brush.linearGradient(
+        listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.tertiary
+        )
+    )
+    val infiniteTransition = rememberInfiniteTransition(label = "coverSpin")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 16000),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "coverSpinValue"
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundGradient),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(260.dp)
+                .offset(x = (-90).dp, y = 40.dp)
+                .background(softGlow, CircleShape)
+                .alpha(0.6f)
+        )
+        Box(
+            modifier = Modifier
+                .size(220.dp)
+                .offset(x = 200.dp, y = 480.dp)
+                .background(softGlow, CircleShape)
+                .alpha(0.5f)
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            AsyncImage(
-                model = coverUrl,
-                contentDescription = null,
-                modifier = Modifier.size(240.dp),
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.25f),
+                            CircleShape
+                        )
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_keyboard_arrow_down_24dp),
+                        contentDescription = null,
+                        tint = Color.White,
+                    )
+                }
+                Text(
+                    text = "Now Playing",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White.copy(alpha = 0.8f),
+                    letterSpacing = 2.sp,
+                )
+                Box(modifier = Modifier.size(44.dp))
+            }
             Spacer(modifier = Modifier.height(12.dp))
-            Text(text = songTitle, style = MaterialTheme.typography.titleMedium)
-            Text(text = songArtist, style = MaterialTheme.typography.bodyMedium)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(300.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.15f),
+                            CircleShape
+                        )
+                )
+                AsyncImage(
+                    model = coverUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(260.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .border(2.dp, accentGradient, RoundedCornerShape(28.dp))
+                        .shadow(24.dp, RoundedCornerShape(28.dp))
+                        .graphicsLayer {
+                            rotationZ = if (isPlaying) rotation else 0f
+                        },
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = songTitle.ifEmpty { "Reproduciendo" },
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = songArtist,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.7f),
+                )
+            }
+            Spacer(modifier = Modifier.height(18.dp))
             Slider(
                 value = progressMs.coerceIn(0, sliderMax).toFloat(),
                 onValueChange = { onSeekChange(it.toInt()) },
                 onValueChangeFinished = onSeekEnd,
                 valueRange = 0f..sliderMax.toFloat(),
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = Color.White.copy(alpha = 0.2f),
+                ),
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(text = elapsedText, style = MaterialTheme.typography.labelSmall)
-                Text(text = durationText, style = MaterialTheme.typography.labelSmall)
+                Text(text = elapsedText, style = MaterialTheme.typography.labelSmall, color = Color.White)
+                Text(text = durationText, style = MaterialTheme.typography.labelSmall, color = Color.White)
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                        RoundedCornerShape(32.dp)
+                    )
+                    .padding(vertical = 10.dp, horizontal = 6.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -532,33 +668,59 @@ private fun NowPlayingScreen(
                     Icon(
                         imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = null,
+                        tint = if (isLiked) MaterialTheme.colorScheme.primary else Color.White
                     )
                 }
                 IconButton(onClick = onShuffle, modifier = Modifier.alpha(if (shuffleEnabled) 1f else 0.4f)) {
                     Icon(
                         painter = painterResource(R.drawable.ic_shuffle_black_24dp),
                         contentDescription = null,
+                        tint = Color.White,
                     )
                 }
-                IconButton(onClick = onPrevious) {
+                IconButton(
+                    onClick = onPrevious,
+                    modifier = Modifier
+                        .size(46.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.25f),
+                            CircleShape
+                        )
+                ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_skip_previous),
                         contentDescription = null,
+                        tint = Color.White,
                     )
                 }
-                IconButton(onClick = onPlayPause) {
+                IconButton(
+                    onClick = onPlayPause,
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(accentGradient, CircleShape)
+                ) {
                     Icon(
                         painter = painterResource(
                             if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
                         ),
                         contentDescription = null,
-                        modifier = Modifier.size(48.dp),
+                        modifier = Modifier.size(36.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary,
                     )
                 }
-                IconButton(onClick = onNext) {
+                IconButton(
+                    onClick = onNext,
+                    modifier = Modifier
+                        .size(46.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.25f),
+                            CircleShape
+                        )
+                ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_skip_next),
                         contentDescription = null,
+                        tint = Color.White,
                     )
                 }
                 IconButton(onClick = onRepeat) {
@@ -569,21 +731,36 @@ private fun NowPlayingScreen(
                     Icon(
                         painter = painterResource(iconRes),
                         contentDescription = null,
+                        tint = Color.White,
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(20.dp))
-            Text(
-                text = if (currentLyric.isNotEmpty()) currentLyric else "No lyrics found",
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            if (nextLyric.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(18.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                        RoundedCornerShape(18.dp)
+                    )
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(
-                    text = nextLyric,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = if (currentLyric.isNotEmpty()) currentLyric else "No lyrics found",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White,
                 )
+                if (nextLyric.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = nextLyric,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.65f),
+                    )
+                }
             }
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }

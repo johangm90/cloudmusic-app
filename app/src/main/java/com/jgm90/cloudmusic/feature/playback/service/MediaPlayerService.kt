@@ -23,6 +23,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.RemoteException
+import android.os.SystemClock
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaControllerCompat
 import android.support.v4.media.session.MediaSessionCompat
@@ -93,6 +94,11 @@ class MediaPlayerService : Service(),
     private var nextIntent: PendingIntent? = null
     private var stopIntent: PendingIntent? = null
     private var audioNoisyReceiverRegistered = false
+    private var errorRecoveryInProgress = false
+    private var consecutiveErrorCount = 0
+    private var preparingSource = false
+    private var prepareToken = 0
+    private var isPrepared = false
     private val eventScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var eventJobs: List<Job> = emptyList()
     private val httpClient = OkHttpClient()
@@ -281,12 +287,15 @@ class MediaPlayerService : Service(),
         if (intent != null) {
             MediaButtonReceiver.handleIntent(mediaSession, intent)
         }
-        return super.onStartCommand(intent, flags, startId)
+        return START_STICKY
     }
 
     override fun onBind(intent: Intent): IBinder = iBinder
 
     override fun onUnbind(intent: Intent): Boolean {
+        if (isPlaying()) {
+            return super.onUnbind(intent)
+        }
         mediaSession?.release()
         removeNotification()
         return super.onUnbind(intent)
@@ -346,6 +355,7 @@ class MediaPlayerService : Service(),
         }
         stopMedia()
         mediaPlayer?.reset()
+        isPrepared = false
         initMediaPlayer()
         buildNotification(PlaybackStatus.PLAYING)
     }
@@ -366,17 +376,30 @@ class MediaPlayerService : Service(),
             MediaPlayer.MEDIA_ERROR_UNKNOWN ->
                 Log.d("MediaPlayer Error", "MEDIA ERROR UNKNOWN $extra")
         }
-        return false
+        isPrepared = false
+        handlePlaybackError("MediaPlayer error: $what/$extra")
+        return true
     }
 
     override fun onInfo(mp: MediaPlayer, what: Int, extra: Int): Boolean = false
 
     override fun onPrepared(mp: MediaPlayer) {
         Log.d("GOHAN", "MP prepared")
+        consecutiveErrorCount = 0
+        errorRecoveryInProgress = false
+        isPrepared = true
         playMedia()
+        updateMetaData(currentArt)
+        buildNotification(PlaybackStatus.PLAYING)
     }
 
     override fun onSeekComplete(mp: MediaPlayer) {
+        val state =
+            if (isPlaying()) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+        setMediaPlaybackState(state)
+        val status =
+            if (isPlaying()) PlaybackStatus.PLAYING else PlaybackStatus.PAUSED
+        buildNotification(status)
     }
 
     override fun onAudioFocusChange(focusState: Int) {
@@ -428,6 +451,9 @@ class MediaPlayerService : Service(),
     }
 
     private fun initMediaPlayer() {
+        if (preparingSource) {
+            return
+        }
         if (mediaPlayer == null) {
             mediaPlayer = MediaPlayer()
         }
@@ -457,11 +483,35 @@ class MediaPlayerService : Service(),
                     SharedUtils.server + "play/" + id + "/160"
                 }
                 Log.d("MediaPlayer", source)
-                mediaPlayer?.setDataSource(source)
-                mediaPlayer?.prepareAsync()
+                preparingSource = true
+                val token = ++prepareToken
+                eventScope.launch {
+                    val setResult = withContext(Dispatchers.IO) {
+                        if (token != prepareToken || mediaPlayer == null) {
+                            return@withContext false
+                        }
+                        runCatching {
+                            mediaPlayer?.setDataSource(source)
+                        }.isSuccess
+                    }
+                    if (token != prepareToken) {
+                        return@launch
+                    }
+                    preparingSource = false
+                    if (!setResult) {
+                        handlePlaybackError("Failed to set data source")
+                        return@launch
+                    }
+                    isPrepared = false
+                    runCatching {
+                        mediaPlayer?.prepareAsync()
+                    }.onFailure { error ->
+                        handlePlaybackError("prepareAsync failed: ${error.message}")
+                    }
+                }
             } catch (e: Exception) {
-                e.printStackTrace()
-                stopSelf()
+                preparingSource = false
+                handlePlaybackError("Data source error: ${e.message}")
             }
         }
     }
@@ -494,6 +544,7 @@ class MediaPlayerService : Service(),
         if (mediaPlayer?.isPlaying == true) {
             mediaPlayer?.stop()
         }
+        isPrepared = false
     }
 
     fun pauseMedia() {
@@ -525,6 +576,9 @@ class MediaPlayerService : Service(),
     }
 
     fun getPosition(): Long {
+        if (!isPrepared) {
+            return 0L
+        }
         return mediaPlayer?.let {
             try {
                 it.currentPosition.toLong()
@@ -535,6 +589,9 @@ class MediaPlayerService : Service(),
     }
 
     fun duration(): Long {
+        if (!isPrepared) {
+            return 0L
+        }
         return mediaPlayer?.let {
             try {
                 it.duration.toLong()
@@ -569,6 +626,10 @@ class MediaPlayerService : Service(),
             audioIndex = random.nextInt((audioList.size - 1) + 1)
             activeAudio = audioList[audioIndex]
         }
+        if (preparingSource) {
+            prepareToken += 1
+            preparingSource = false
+        }
         stopMedia()
         mediaPlayer?.reset()
         initMediaPlayer()
@@ -587,6 +648,10 @@ class MediaPlayerService : Service(),
             val random = Random()
             audioIndex = random.nextInt((audioList.size - 1) + 1)
             activeAudio = audioList[audioIndex]
+        }
+        if (preparingSource) {
+            prepareToken += 1
+            preparingSource = false
         }
         stopMedia()
         mediaPlayer?.reset()
@@ -652,12 +717,18 @@ class MediaPlayerService : Service(),
 
     private fun setMediaPlaybackState(state: Int) {
         val playBackStateBuilder = PlaybackStateCompat.Builder()
-        if (state == PlaybackStateCompat.STATE_PLAYING) {
-            playBackStateBuilder.setActions(PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_PAUSE)
-        } else {
-            playBackStateBuilder.setActions(PlaybackStateCompat.ACTION_PLAY_PAUSE or PlaybackStateCompat.ACTION_PLAY)
-        }
-        playBackStateBuilder.setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 0f)
+        playBackStateBuilder.setActions(
+            PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                PlaybackStateCompat.ACTION_PLAY or
+                PlaybackStateCompat.ACTION_PAUSE or
+                PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                PlaybackStateCompat.ACTION_STOP or
+                PlaybackStateCompat.ACTION_SEEK_TO
+        )
+        val position = getPosition()
+        val speed = if (state == PlaybackStateCompat.STATE_PLAYING) 1f else 0f
+        playBackStateBuilder.setState(state, position, speed, SystemClock.elapsedRealtime())
         mediaSession?.setPlaybackState(playBackStateBuilder.build())
     }
 
@@ -682,19 +753,20 @@ class MediaPlayerService : Service(),
         return result == AudioManager.AUDIOFOCUS_GAIN
     }
 
-    private fun updateMetaData(albumArt: Bitmap) {
+    private fun updateMetaData(albumArt: Bitmap?) {
         activeAudio?.let { audio ->
-            mediaSession?.setMetadata(
-                MediaMetadataCompat.Builder()
-                    .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, albumArt)
-                    .putString(
-                        MediaMetadataCompat.METADATA_KEY_ARTIST,
-                        TextUtils.join(", ", audio.artist)
-                    )
-                    .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, audio.album)
-                    .putString(MediaMetadataCompat.METADATA_KEY_TITLE, audio.name)
-                    .build(),
-            )
+            val metadataBuilder = MediaMetadataCompat.Builder()
+                .putString(
+                    MediaMetadataCompat.METADATA_KEY_ARTIST,
+                    TextUtils.join(", ", audio.artist)
+                )
+                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, audio.album)
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, audio.name)
+                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration())
+            if (albumArt != null) {
+                metadataBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, albumArt)
+            }
+            mediaSession?.setMetadata(metadataBuilder.build())
         }
         publishPlaybackInfo()
     }
@@ -757,7 +829,11 @@ class MediaPlayerService : Service(),
                     .setShowActionsInCompactView(0, 1, 2),
             )
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
             .setPriority(Notification.PRIORITY_DEFAULT)
+            .setOngoing(playbackStatus == PlaybackStatus.PLAYING)
             .setVibrate(longArrayOf(0))
             .setContentIntent(createContentIntent())
             .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
@@ -767,6 +843,16 @@ class MediaPlayerService : Service(),
             .addAction(R.drawable.ic_skip_previous, "previous", previousIntent)
             .addAction(notificationAction, action, playPauseAction)
             .addAction(R.drawable.ic_skip_next, "next", nextIntent)
+        val durationMs = duration()
+        val positionMs = getPosition()
+        if (durationMs > 0L) {
+            notificationBuilder.setProgress(
+                durationMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                positionMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                false
+            )
+        }
+        updateMetaData(currentArt)
         if (currentIndex != audioIndex) {
             getAlbumArt(notificationBuilder)
         } else {
@@ -901,6 +987,29 @@ class MediaPlayerService : Service(),
             unregisterReceiver(audioNoisyReceiver)
             audioNoisyReceiverRegistered = false
         }
+    }
+
+    private fun handlePlaybackError(message: String) {
+        Log.w("MediaPlayerService", message)
+        preparingSource = false
+        prepareToken += 1
+        if (errorRecoveryInProgress) {
+            return
+        }
+        errorRecoveryInProgress = true
+        consecutiveErrorCount += 1
+        val maxErrors = 3
+        if (consecutiveErrorCount >= maxErrors || audioList.isEmpty()) {
+            pauseMedia()
+            setMediaPlaybackState(PlaybackStateCompat.STATE_PAUSED)
+            buildNotification(PlaybackStatus.PAUSED)
+            errorRecoveryInProgress = false
+            return
+        }
+        handler.postDelayed({
+            errorRecoveryInProgress = false
+            skipToNext()
+        }, 400L)
     }
 
     private fun onRemoteClick() {

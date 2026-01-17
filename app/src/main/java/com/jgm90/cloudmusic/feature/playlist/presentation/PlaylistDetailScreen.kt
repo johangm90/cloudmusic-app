@@ -8,12 +8,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,11 +26,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.model.SongModel
+import com.jgm90.cloudmusic.core.ui.theme.AppBackground
 import com.jgm90.cloudmusic.feature.playlist.presentation.viewmodel.PlaylistViewModel
 import io.nubit.cloudmusic.designsystem.component.EmptyState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,67 +58,118 @@ fun PlaylistDetailScreen(
         viewModel.loadSongs(playlistId) { songs = it }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text(text = playlistName) },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(painter = painterResource(R.drawable.ic_keyboard_arrow_down_24dp), contentDescription = null)
-                }
-            }
-        )
-
-        if (showOfflineToggle) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(text = "Disponible offline")
-                Switch(
-                    checked = offline,
-                    onCheckedChange = {
-                        offline = it
-                        onToggleOffline(it)
+    AppBackground {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = { Text(text = playlistName) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_keyboard_arrow_down_24dp),
+                                contentDescription = null
+                            )
+                        }
                     },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        titleContentColor = Color.White,
+                        navigationIconContentColor = Color.White,
+                    )
                 )
-            }
-        }
-
-        if (songs.isEmpty()) {
-            EmptyState(
-                textRes = R.string.no_songs,
-                imageRes = R.drawable.ic_info_black_24dp,
-            )
-        } else {
-            LazyColumn {
-                itemsIndexed(songs) { index, song ->
-                    Row(
+            },
+        ) { padding ->
+            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                if (showOfflineToggle) {
+                    Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(16.dp),
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = song.name, style = MaterialTheme.typography.bodyLarge)
-                            Text(text = song.artist.joinToString(","), style = MaterialTheme.typography.bodySmall)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(text = "Disponible offline", color = Color.White)
+                            Switch(
+                                checked = offline,
+                                onCheckedChange = {
+                                    offline = it
+                                    onToggleOffline(it)
+                                },
+                            )
                         }
-                        IconButton(onClick = { onPlaySong(index, songs) }) {
-                            Icon(painter = painterResource(R.drawable.ic_play_arrow), contentDescription = null)
-                        }
-                    IconButton(onClick = { onDownloadSong(song) }) {
-                        Icon(painter = painterResource(R.drawable.ic_add_24dp), contentDescription = null)
-                    }
-                    IconButton(onClick = {
-                        onDeleteSong(song)
-                        songs = songs.filterNot { it.id == song.id }
-                    }) {
-                        Icon(painter = painterResource(R.drawable.ic_error_black_24dp), contentDescription = null)
                     }
                 }
-            }
+
+                if (songs.isEmpty()) {
+                    EmptyState(
+                        textRes = R.string.no_songs,
+                        imageRes = R.drawable.ic_info_black_24dp,
+                    )
+                } else {
+                    LazyColumn {
+                        itemsIndexed(songs) { index, song ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(16.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = song.name,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = song.artist.joinToString(","),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color.White.copy(alpha = 0.65f),
+                                        )
+                                    }
+                                    IconButton(onClick = { onPlaySong(index, songs) }) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_play_arrow),
+                                            contentDescription = null,
+                                            tint = Color.White
+                                        )
+                                    }
+                                    IconButton(onClick = { onDownloadSong(song) }) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_add_24dp),
+                                            contentDescription = null,
+                                            tint = Color.White
+                                        )
+                                    }
+                                    IconButton(onClick = {
+                                        onDeleteSong(song)
+                                        songs = songs.filterNot { it.id == song.id }
+                                    }) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_error_black_24dp),
+                                            contentDescription = null,
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

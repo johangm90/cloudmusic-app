@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -13,7 +14,9 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -57,26 +61,58 @@ fun LibraryScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
-                ListItem(
-                    headlineContent = { Text(text = stringResource(id = R.string.recently_played)) },
-                    leadingContent = {
-                        Icon(imageVector = Icons.Filled.History, contentDescription = null)
-                    },
+                Surface(
                     modifier = Modifier
-                        .clickable { onOpenRecent() }
-                        .padding(horizontal = 8.dp),
-                )
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .clickable { onOpenRecent() },
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.recently_played),
+                                color = Color.White
+                            )
+                        },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Filled.History,
+                                contentDescription = null,
+                                tint = Color.White
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    )
+                }
             }
             item {
-                ListItem(
-                    headlineContent = { Text(text = stringResource(id = R.string.liked_songs)) },
-                    leadingContent = {
-                        Icon(imageVector = Icons.Filled.Favorite, contentDescription = null)
-                    },
+                Surface(
                     modifier = Modifier
-                        .clickable { onOpenLiked() }
-                        .padding(horizontal = 8.dp),
-                )
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .clickable { onOpenLiked() },
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.liked_songs),
+                                color = Color.White
+                            )
+                        },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Filled.Favorite,
+                                contentDescription = null,
+                                tint = Color.White
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    )
+                }
             }
 
             if (playlists.isEmpty()) {
@@ -172,56 +208,65 @@ private fun PlaylistRow(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
-    ListItem(
-        headlineContent = { Text(text = playlist.name) },
-        supportingContent = {
-            Text(
-                text = pluralStringResource(
-                    id = R.plurals.playlist_messages,
-                    count = playlist.song_count,
-                    playlist.song_count,
-                )
-            )
-        },
-        leadingContent = {
-            if (playlist.offline == 1) {
-                Text(
-                    text = "Offline",
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        },
-        trailingContent = {
-            Box {
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_more_vert_black_24dp),
-                        contentDescription = null,
-                    )
-                }
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(text = stringResource(id = R.string.edit)) },
-                        onClick = {
-                            menuExpanded = false
-                            onEdit()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(text = stringResource(id = R.string.delete)) },
-                        onClick = {
-                            menuExpanded = false
-                            onDelete()
-                        },
-                    )
-                }
-            }
-        },
+    Surface(
         modifier = Modifier
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .clickable { onOpenPlaylist() },
-    )
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        ListItem(
+            headlineContent = { Text(text = playlist.name, color = Color.White) },
+            supportingContent = {
+                Text(
+                    text = pluralStringResource(
+                        id = R.plurals.playlist_messages,
+                        count = playlist.song_count,
+                        playlist.song_count,
+                    ),
+                    color = Color.White.copy(alpha = 0.65f),
+                )
+            },
+            leadingContent = {
+                if (playlist.offline == 1) {
+                    Text(
+                        text = "Offline",
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            },
+            trailingContent = {
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_more_vert_black_24dp),
+                            contentDescription = null,
+                            tint = Color.White,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(id = R.string.edit)) },
+                            onClick = {
+                                menuExpanded = false
+                                onEdit()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(id = R.string.delete)) },
+                            onClick = {
+                                menuExpanded = false
+                                onDelete()
+                            },
+                        )
+                    }
+                }
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+    }
 }

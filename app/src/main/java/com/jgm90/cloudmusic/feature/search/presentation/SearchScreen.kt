@@ -27,6 +27,7 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -122,6 +124,7 @@ fun SearchScreen(
             onSearchActiveChange(active)
         }
         Scaffold(
+            containerColor = Color.Transparent,
             topBar = {
                 SearchBar(
                     modifier = Modifier.fillMaxWidth(),
@@ -150,6 +153,10 @@ fun SearchScreen(
                     },
                     expanded = active,
                     onExpandedChange = { setActive(it) },
+                    colors = SearchBarDefaults.colors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.25f),
+                        dividerColor = Color.Transparent,
+                    ),
                 ) {
                     if (history.isEmpty()) {
                         EmptyState(
@@ -225,6 +232,7 @@ private fun SearchResultsScreen(
     onAddToPlaylist: (SongModel) -> Unit,
 ) {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text(text = query) },
@@ -233,6 +241,11 @@ private fun SearchResultsScreen(
                         Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = null)
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                ),
             )
         },
     ) { padding ->

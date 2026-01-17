@@ -17,16 +17,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
@@ -37,6 +40,7 @@ import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.app.BaseActivity
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.DownloadEvent
+import com.jgm90.cloudmusic.core.ui.theme.AppBackground
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
@@ -83,9 +87,6 @@ class MainActivity : BaseActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (!isChangingConfigurations) {
-            player_service?.stopSelf()
-        }
     }
 
     override fun onStart() {
@@ -160,84 +161,109 @@ private fun MainContent(
     var searchExpanded by remember { mutableStateOf(false) }
     val showTopBar = !canNavigateBack && !(destination == HomeDestination.Search && searchExpanded)
 
-    Scaffold(
-        topBar = {
-            if (showTopBar) {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = when (destination) {
-                                HomeDestination.Search -> stringResource(R.string.search)
-                                HomeDestination.Library -> stringResource(R.string.library)
-                                HomeDestination.RecentlyPlayed -> stringResource(R.string.recently_played)
-                                HomeDestination.LikedSongs -> stringResource(R.string.liked_songs)
+    AppBackground {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                if (showTopBar) {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                text = when (destination) {
+                                    HomeDestination.Search -> stringResource(R.string.search)
+                                    HomeDestination.Library -> stringResource(R.string.library)
+                                    HomeDestination.RecentlyPlayed -> stringResource(R.string.recently_played)
+                                    HomeDestination.LikedSongs -> stringResource(R.string.liked_songs)
+                                }
+                            )
+                        },
+                        actions = {
+                            IconButton(onClick = { showAbout = true }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_info_black_24dp),
+                                    contentDescription = null,
+                                )
                             }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            titleContentColor = Color.White,
+                            actionIconContentColor = Color.White,
+                        ),
+                    )
+                }
+            },
+            bottomBar = {
+                Column {
+                    if (showPlayback) {
+                        PlaybackControlsBar(onOpenNowPlaying = onOpenNowPlaying)
+                    }
+                    NavigationBar(
+                        containerColor = Color(0xCC0F171E),
+                        contentColor = Color.White,
+                    ) {
+                        NavigationBarItem(
+                            selected = destination == HomeDestination.Search,
+                            onClick = { destination = HomeDestination.Search },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_search_black_24dp),
+                                    contentDescription = null,
+                                )
+                            },
+                            label = { Text(text = stringResource(R.string.search)) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color.White,
+                                selectedTextColor = Color.White,
+                                unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                                unselectedTextColor = Color.White.copy(alpha = 0.6f),
+                                indicatorColor = Color.Transparent,
+                            )
                         )
-                    },
-                    actions = {
-                        IconButton(onClick = { showAbout = true }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_info_black_24dp),
-                                contentDescription = null,
+                        NavigationBarItem(
+                            selected = destination == HomeDestination.Library,
+                            onClick = { destination = HomeDestination.Library },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_library_music_black_24dp),
+                                    contentDescription = null,
+                                )
+                            },
+                            label = { Text(text = stringResource(R.string.library)) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color.White,
+                                selectedTextColor = Color.White,
+                                unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                                unselectedTextColor = Color.White.copy(alpha = 0.6f),
+                                indicatorColor = Color.Transparent,
                             )
-                        }
-                    },
-                )
-            }
-        },
-        bottomBar = {
-            Column {
-                if (showPlayback) {
-                    PlaybackControlsBar(onOpenNowPlaying = onOpenNowPlaying)
-                }
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = destination == HomeDestination.Search,
-                        onClick = { destination = HomeDestination.Search },
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_search_black_24dp),
-                                contentDescription = null,
-                            )
-                        },
-                        label = { Text(text = stringResource(R.string.search)) },
-                    )
-                    NavigationBarItem(
-                        selected = destination == HomeDestination.Library,
-                        onClick = { destination = HomeDestination.Library },
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_library_music_black_24dp),
-                                contentDescription = null,
-                            )
-                        },
-                        label = { Text(text = stringResource(R.string.library)) },
-                    )
+                        )
+                    }
                 }
             }
-        }
-    ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            when (destination) {
-                HomeDestination.Search -> SearchScreen(
-                    onOpenNowPlaying = onOpenNowPlayingWithList,
-                    onSearchActiveChange = { searchExpanded = it },
-                )
-                HomeDestination.Library -> LibraryScreen(
-                    onOpenRecent = { destination = HomeDestination.RecentlyPlayed },
-                    onOpenLiked = { destination = HomeDestination.LikedSongs },
-                    onOpenPlaylist = onOpenPlaylist,
-                )
+        ) { padding ->
+            Box(modifier = Modifier.padding(padding)) {
+                when (destination) {
+                    HomeDestination.Search -> SearchScreen(
+                        onOpenNowPlaying = onOpenNowPlayingWithList,
+                        onSearchActiveChange = { searchExpanded = it },
+                    )
+                    HomeDestination.Library -> LibraryScreen(
+                        onOpenRecent = { destination = HomeDestination.RecentlyPlayed },
+                        onOpenLiked = { destination = HomeDestination.LikedSongs },
+                        onOpenPlaylist = onOpenPlaylist,
+                    )
 
-                HomeDestination.RecentlyPlayed -> RecentlyPlayedScreen(
-                    onBack = { destination = HomeDestination.Library },
-                    onOpenNowPlaying = onOpenNowPlayingWithList,
-                )
+                    HomeDestination.RecentlyPlayed -> RecentlyPlayedScreen(
+                        onBack = { destination = HomeDestination.Library },
+                        onOpenNowPlaying = onOpenNowPlayingWithList,
+                    )
 
-                HomeDestination.LikedSongs -> LikedSongsScreen(
-                    onBack = { destination = HomeDestination.Library },
-                    onOpenNowPlaying = onOpenNowPlayingWithList,
-                )
+                    HomeDestination.LikedSongs -> LikedSongsScreen(
+                        onBack = { destination = HomeDestination.Library },
+                        onOpenNowPlaying = onOpenNowPlayingWithList,
+                    )
+                }
             }
         }
     }

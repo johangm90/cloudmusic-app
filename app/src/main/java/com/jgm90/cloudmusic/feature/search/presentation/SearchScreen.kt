@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
@@ -29,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +41,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -126,38 +128,52 @@ fun SearchScreen(
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                SearchBar(
-                    modifier = Modifier.fillMaxWidth(),
-                    inputField = {
-                        SearchBarDefaults.InputField(
-                            query = query,
-                            onQueryChange = { query = it },
-                            onSearch = { submitSearch() },
-                            expanded = active,
-                            onExpandedChange = { setActive(it) },
-                            placeholder = { Text(text = stringResource(id = R.string.search_hint)) },
-                            leadingIcon = {
-                                Icon(imageVector = Icons.Filled.Search, contentDescription = null)
-                            },
-                            trailingIcon = {
-                                if (query.isNotEmpty()) {
-                                    IconButton(onClick = { query = "" }) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Close,
-                                            contentDescription = null
-                                        )
-                                    }
-                                }
-                            },
-                        )
-                    },
-                    expanded = active,
-                    onExpandedChange = { setActive(it) },
-                    colors = SearchBarDefaults.colors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.25f),
-                        dividerColor = Color.Transparent,
-                    ),
+                CompositionLocalProvider(
+                    LocalContentColor provides Color.White,
+                    LocalTextStyle provides MaterialTheme.typography.bodyLarge.copy(color = Color.White),
                 ) {
+                    SearchBar(
+                        modifier = Modifier.fillMaxWidth(),
+                        inputField = {
+                            SearchBarDefaults.InputField(
+                                query = query,
+                                onQueryChange = { query = it },
+                                onSearch = { submitSearch() },
+                                expanded = active,
+                                onExpandedChange = { setActive(it) },
+                                placeholder = {
+                                    Text(
+                                        text = stringResource(id = R.string.search_hint),
+                                        color = Color.White.copy(alpha = 0.6f)
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Filled.Search,
+                                        contentDescription = null,
+                                        tint = Color.White
+                                    )
+                                },
+                                trailingIcon = {
+                                    if (query.isNotEmpty()) {
+                                        IconButton(onClick = { query = "" }) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Close,
+                                                contentDescription = null,
+                                                tint = Color.White
+                                            )
+                                        }
+                                    }
+                                },
+                            )
+                        },
+                        expanded = active,
+                        onExpandedChange = { setActive(it) },
+                        colors = SearchBarDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.25f),
+                            dividerColor = Color.Transparent,
+                        ),
+                    ) {
                     if (history.isEmpty()) {
                         EmptyState(
                             textRes = R.string.search_history_empty,
@@ -172,17 +188,21 @@ fun SearchScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    text = stringResource(id = R.string.search_history_title),
-                                    style = MaterialTheme.typography.titleSmall,
-                                )
+                            Text(
+                                text = stringResource(id = R.string.search_history_title),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = Color.White,
+                            )
                                 TextButton(onClick = {
                                     historyStore.clear()
                                     history = emptyList()
                                 }) {
-                                    Text(text = stringResource(id = R.string.search_history_clear))
-                                }
+                                Text(
+                                    text = stringResource(id = R.string.search_history_clear),
+                                    color = Color.White,
+                                )
                             }
+                        }
                             history.forEach { item ->
                                 Row(
                                     modifier = Modifier
@@ -194,16 +214,18 @@ fun SearchScreen(
                                         .padding(horizontal = 16.dp, vertical = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.History,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                    Spacer(modifier = Modifier.size(12.dp))
-                                    Text(text = item)
+                            Icon(
+                                imageVector = Icons.Filled.History,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = Color.White.copy(alpha = 0.8f),
+                            )
+                            Spacer(modifier = Modifier.size(12.dp))
+                            Text(text = item, color = Color.White)
                                 }
                             }
                         }
+                    }
                     }
                 }
             },

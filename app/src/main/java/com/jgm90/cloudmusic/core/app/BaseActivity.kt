@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowInsetsControllerCompat
 import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
 import androidx.compose.runtime.mutableStateOf
 
@@ -20,6 +21,12 @@ open class BaseActivity : AppCompatActivity(), ServiceConnection {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = android.graphics.Color.parseColor("#0B1118")
+        window.navigationBarColor = android.graphics.Color.parseColor("#0B1118")
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
         volumeControlStream = AudioManager.STREAM_MUSIC
         attachService()
     }

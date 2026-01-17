@@ -17,6 +17,7 @@ import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.media.audiofx.Visualizer
 import android.media.session.MediaSessionManager
 import android.os.Binder
 import android.os.Build
@@ -39,10 +40,12 @@ import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.event.AppEventBus
+import com.jgm90.cloudmusic.core.event.BeatEvent
 import com.jgm90.cloudmusic.core.event.IsPlayingEvent
 import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
 import com.jgm90.cloudmusic.core.event.PlaybackInfoEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
+import com.jgm90.cloudmusic.core.event.VisualizerBandsEvent
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
 import com.jgm90.cloudmusic.core.playback.PlaybackStatus
@@ -99,6 +102,8 @@ class MediaPlayerService : Service(),
     private var preparingSource = false
     private var prepareToken = 0
     private var isPrepared = false
+    private var visualizer: Visualizer? = null
+    private var lastBeatEmitMs = 0L
     private val eventScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var eventJobs: List<Job> = emptyList()
     private val httpClient = OkHttpClient()
@@ -308,6 +313,7 @@ class MediaPlayerService : Service(),
             it.release()
             removeAudioFocus()
         }
+        releaseVisualizer()
         phoneStateListener?.let { telephonyManager?.listen(it, PhoneStateListener.LISTEN_NONE) }
         removeNotification()
         unregisterReceiver(playNewAudio)
@@ -389,6 +395,7 @@ class MediaPlayerService : Service(),
         errorRecoveryInProgress = false
         isPrepared = true
         playMedia()
+        startVisualizer(mp.audioSessionId)
         updateMetaData(currentArt)
         buildNotification(PlaybackStatus.PLAYING)
     }
@@ -551,12 +558,14 @@ class MediaPlayerService : Service(),
         if (mediaPlayer?.isPlaying == true) {
             mediaPlayer?.pause()
         }
+        visualizer?.enabled = false
     }
 
     private fun resumeMedia() {
         if (mediaPlayer?.isPlaying == false) {
             mediaPlayer?.start()
         }
+        visualizer?.enabled = true
     }
 
     fun eventPlayOrPause(event: PlayPauseEvent) {
@@ -989,10 +998,100 @@ class MediaPlayerService : Service(),
         }
     }
 
+    private fun startVisualizer(sessionId: Int) {
+        if (sessionId == AudioManager.ERROR || sessionId == 0) {
+            return
+        }
+        if (ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.RECORD_AUDIO
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        releaseVisualizer()
+        try {
+            val captureRate = Visualizer.getMaxCaptureRate().coerceAtMost(20000)
+            val captureSize = Visualizer.getCaptureSizeRange().first()
+            visualizer = Visualizer(sessionId).apply {
+                setCaptureSize(captureSize)
+                setDataCaptureListener(
+                    object : Visualizer.OnDataCaptureListener {
+                        override fun onFftDataCapture(
+                            visualizer: Visualizer,
+                            fft: ByteArray,
+                            samplingRate: Int
+                        ) {
+                            val now = SystemClock.elapsedRealtime()
+                            if (now - lastBeatEmitMs < 40) {
+                                return
+                            }
+                            lastBeatEmitMs = now
+                            val magnitudes = FloatArray(fft.size / 2)
+                            var index = 0
+                            var i = 2
+                            while (i < fft.size - 1) {
+                                val real = fft[i].toInt()
+                                val imag = fft[i + 1].toInt()
+                                val mag = kotlin.math.sqrt((real * real + imag * imag).toFloat())
+                                magnitudes[index] = mag
+                                index += 1
+                                i += 2
+                            }
+                            val bandCount = 64
+                            val bands = FloatArray(bandCount)
+                            val binsPerBand = (magnitudes.size / bandCount).coerceAtLeast(1)
+                            var sum = 0f
+                            var count = 0
+                            for (band in 0 until bandCount) {
+                                var bandSum = 0f
+                                val start = band * binsPerBand
+                                val end = (start + binsPerBand).coerceAtMost(magnitudes.size)
+                                for (j in start until end) {
+                                    bandSum += magnitudes[j]
+                                    sum += magnitudes[j]
+                                    count += 1
+                                }
+                                val avg = if (end > start) bandSum / (end - start) else 0f
+                                bands[band] = (avg / 128f).coerceIn(0f, 1f)
+                            }
+                            val level = if (count == 0) 0f else (sum / count / 128f).coerceIn(0f, 1f)
+                            AppEventBus.post(BeatEvent(level))
+                            AppEventBus.post(VisualizerBandsEvent(bands))
+                        }
+
+                        override fun onWaveFormDataCapture(
+                            visualizer: Visualizer,
+                            waveform: ByteArray,
+                            samplingRate: Int
+                        ) = Unit
+                    },
+                    captureRate,
+                    false,
+                    true
+                )
+                enabled = true
+            }
+        } catch (e: Exception) {
+            Log.w("MediaPlayerService", "Visualizer failed: ${e.message}")
+            releaseVisualizer()
+        }
+    }
+
+    private fun releaseVisualizer() {
+        try {
+            visualizer?.release()
+        } catch (_: Exception) {
+        } finally {
+            visualizer = null
+        }
+    }
+
     private fun handlePlaybackError(message: String) {
         Log.w("MediaPlayerService", message)
         preparingSource = false
         prepareToken += 1
+        releaseVisualizer()
         if (errorRecoveryInProgress) {
             return
         }

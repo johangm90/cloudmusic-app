@@ -5,6 +5,7 @@
 
     <string name="action_settings">Ajustes</string>
     <string name="action_search">Buscar</string>
+    <string name="play">Reproducir</string>
 
     <string name="about">Acerca de</string>
     <string name="about_body"><![CDATA[
@@ -48,5 +49,7 @@
     <string name="no_liked_songs">Sin canciones favoritas</string>
     <string name="delete_playlist_title">Eliminar playlist</string>
     <string name="delete_playlist_message">¿Seguro que deseas eliminar esta playlist?</string>
+    <string name="delete_song_title">Eliminar cancion</string>
+    <string name="delete_song_message">¿Seguro que deseas eliminar esta cancion de la playlist?</string>
     <string name="title_activity_playlist_detail">Playlist</string>
 </resources>

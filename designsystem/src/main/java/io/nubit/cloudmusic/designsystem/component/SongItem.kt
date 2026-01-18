@@ -52,10 +52,10 @@ fun SongItem(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
         shape = RoundedCornerShape(16.dp),
-        tonalElevation = 2.dp,
-        shadowElevation = 4.dp,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -86,11 +86,12 @@ fun SongItem(
                     text = songName,
                     maxLines = 1,
                     style = MaterialTheme.typography.titleSmall,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = artistName.joinToString(", "),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     style = MaterialTheme.typography.bodySmall,
                     overflow = TextOverflow.Ellipsis
@@ -100,7 +101,8 @@ fun SongItem(
                 IconButton(onClick = { expanded = true }) {
                     Icon(
                         painterResource(R.drawable.ic_more_vert_outlined_24dp),
-                        contentDescription = "Opciones"
+                        contentDescription = "Opciones",
+                        tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
 

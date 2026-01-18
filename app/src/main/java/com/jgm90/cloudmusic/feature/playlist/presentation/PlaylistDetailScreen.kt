@@ -82,9 +82,9 @@ fun PlaylistDetailScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White,
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
                     )
                 )
             },

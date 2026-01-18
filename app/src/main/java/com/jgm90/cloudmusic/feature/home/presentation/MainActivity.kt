@@ -10,11 +10,12 @@ import android.widget.TextView
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -159,14 +160,15 @@ private fun MainContent(
     var showChangelogDialog by remember { mutableStateOf(showChangelog) }
     val canNavigateBack =
         destination == HomeDestination.RecentlyPlayed ||
-        destination == HomeDestination.LikedSongs ||
-        destination == HomeDestination.Settings
+                destination == HomeDestination.LikedSongs ||
+                destination == HomeDestination.Settings
     var searchExpanded by remember { mutableStateOf(false) }
     val showTopBar = !canNavigateBack && !(destination == HomeDestination.Search && searchExpanded)
 
     AppBackground {
         Scaffold(
             containerColor = Color.Transparent,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             topBar = {
                 if (showTopBar) {
                     TopAppBar(
@@ -184,9 +186,9 @@ private fun MainContent(
                         actions = {
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            titleContentColor = Color.White,
-                            actionIconContentColor = Color.White,
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            titleContentColor = MaterialTheme.colorScheme.onSurface,
+                            actionIconContentColor = MaterialTheme.colorScheme.onSurface,
                         ),
                     )
                 }
@@ -264,6 +266,7 @@ private fun MainContent(
                         onOpenNowPlaying = onOpenNowPlayingWithList,
                         onSearchActiveChange = { searchExpanded = it },
                     )
+
                     HomeDestination.Library -> LibraryScreen(
                         onOpenRecent = { destination = HomeDestination.RecentlyPlayed },
                         onOpenLiked = { destination = HomeDestination.LikedSongs },

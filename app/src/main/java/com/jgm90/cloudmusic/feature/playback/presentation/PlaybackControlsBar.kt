@@ -1,5 +1,6 @@
 package com.jgm90.cloudmusic.feature.playback.presentation
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,11 +71,15 @@ fun PlaybackControlsBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(18.dp))
             .clickable { onOpenNowPlaying() },
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.24f),
-        shadowElevation = 6.dp,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
+        tonalElevation = 2.dp,
+        shadowElevation = 0.dp,
         shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        ),
     ) {
         Row(
             modifier = Modifier
@@ -96,14 +101,14 @@ fun PlaybackControlsBar(
             ) {
                 Text(
                     text = title.value,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     style = MaterialTheme.typography.titleMedium,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = subtitle.value,
-                    color = Color.White.copy(alpha = 0.65f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     style = MaterialTheme.typography.bodyMedium,
                     overflow = TextOverflow.Ellipsis,

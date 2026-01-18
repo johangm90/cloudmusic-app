@@ -183,12 +183,6 @@ private fun MainContent(
                             )
                         },
                         actions = {
-                            IconButton(onClick = { destination = HomeDestination.Settings }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_settings_black_24dp),
-                                    contentDescription = "Settings",
-                                )
-                            }
                             IconButton(onClick = { showAbout = true }) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_info_black_24dp),
@@ -241,6 +235,24 @@ private fun MainContent(
                                 )
                             },
                             label = { Text(text = stringResource(R.string.library)) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color.White,
+                                selectedTextColor = Color.White,
+                                unselectedIconColor = Color.White.copy(alpha = 0.6f),
+                                unselectedTextColor = Color.White.copy(alpha = 0.6f),
+                                indicatorColor = Color.Transparent,
+                            )
+                        )
+                        NavigationBarItem(
+                            selected = destination == HomeDestination.Settings,
+                            onClick = { destination = HomeDestination.Settings },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_settings_black_24dp),
+                                    contentDescription = null,
+                                )
+                            },
+                            label = { Text(text = stringResource(R.string.settings)) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = Color.White,
                                 selectedTextColor = Color.White,

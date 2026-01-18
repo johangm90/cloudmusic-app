@@ -20,18 +20,15 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SearchBar
-import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +39,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jgm90.cloudmusic.R
@@ -76,15 +78,10 @@ fun SearchScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     var query by remember { mutableStateOf("") }
-    var active by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf(SearchMode.Home) }
     var addToPlaylistSong by remember { mutableStateOf<SongModel?>(null) }
     var history by remember { mutableStateOf(historyStore.getHistory()) }
-
-    fun setActive(expanded: Boolean) {
-        active = expanded
-        onSearchActiveChange(expanded || mode == SearchMode.Results)
-    }
+    var showHistory by remember { mutableStateOf(false) }
 
     fun submitSearch() {
         val trimmed = query.trim()
@@ -92,7 +89,6 @@ fun SearchScreen(
         historyStore.addQuery(trimmed)
         history = historyStore.getHistory()
         viewModel.search(trimmed)
-        setActive(false)
         mode = SearchMode.Results
     }
 
@@ -102,12 +98,15 @@ fun SearchScreen(
         }
         SearchResultsScreen(
             query = query,
+            onQueryChange = { query = it },
+            onClearQuery = { query = "" },
             state = state,
             onBack = {
                 mode = SearchMode.Home
                 onSearchActiveChange(false)
             },
             onOpenNowPlaying = onOpenNowPlaying,
+            onSearch = { submitSearch() },
             onDownload = { song ->
                 AppEventBus.postSticky(
                     DownloadEvent(
@@ -123,57 +122,21 @@ fun SearchScreen(
         )
     } else {
         LaunchedEffect(mode) {
-            onSearchActiveChange(active)
+            onSearchActiveChange(false)
         }
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                CompositionLocalProvider(
-                    LocalContentColor provides Color.White,
-                    LocalTextStyle provides MaterialTheme.typography.bodyLarge.copy(color = Color.White),
-                ) {
-                    SearchBar(
-                        modifier = Modifier.fillMaxWidth(),
-                        inputField = {
-                            SearchBarDefaults.InputField(
-                                query = query,
-                                onQueryChange = { query = it },
-                                onSearch = { submitSearch() },
-                                expanded = active,
-                                onExpandedChange = { setActive(it) },
-                                placeholder = {
-                                    Text(
-                                        text = stringResource(id = R.string.search_hint),
-                                        color = Color.White.copy(alpha = 0.6f)
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Filled.Search,
-                                        contentDescription = null,
-                                        tint = Color.White
-                                    )
-                                },
-                                trailingIcon = {
-                                    if (query.isNotEmpty()) {
-                                        IconButton(onClick = { query = "" }) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Close,
-                                                contentDescription = null,
-                                                tint = Color.White
-                                            )
-                                        }
-                                    }
-                                },
-                            )
-                        },
-                        expanded = active,
-                        onExpandedChange = { setActive(it) },
-                        colors = SearchBarDefaults.colors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.25f),
-                            dividerColor = Color.Transparent,
-                        ),
-                    ) {
+                SearchHomeTopBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    onSearch = { submitSearch() },
+                    onFocusChange = { focused -> showHistory = focused },
+                )
+            },
+        ) { padding ->
+            Column(modifier = Modifier.padding(padding)) {
+                if (showHistory) {
                     if (history.isEmpty()) {
                         EmptyState(
                             textRes = R.string.search_history_empty,
@@ -188,21 +151,21 @@ fun SearchScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                            Text(
-                                text = stringResource(id = R.string.search_history_title),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = Color.White,
-                            )
+                                Text(
+                                    text = stringResource(id = R.string.search_history_title),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
                                 TextButton(onClick = {
                                     historyStore.clear()
                                     history = emptyList()
                                 }) {
-                                Text(
-                                    text = stringResource(id = R.string.search_history_clear),
-                                    color = Color.White,
-                                )
+                                    Text(
+                                        text = stringResource(id = R.string.search_history_clear),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                             }
-                        }
                             history.forEach { item ->
                                 Row(
                                     modifier = Modifier
@@ -214,23 +177,20 @@ fun SearchScreen(
                                         .padding(horizontal = 16.dp, vertical = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                            Icon(
-                                imageVector = Icons.Filled.History,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = Color.White.copy(alpha = 0.8f),
-                            )
-                            Spacer(modifier = Modifier.size(12.dp))
-                            Text(text = item, color = Color.White)
+                                    Icon(
+                                        imageVector = Icons.Filled.History,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Spacer(modifier = Modifier.size(12.dp))
+                                    Text(text = item, color = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
                         }
                     }
-                    }
                 }
-            },
-        ) { padding ->
-            Box(modifier = Modifier.padding(padding))
+            }
         }
     }
 
@@ -247,9 +207,12 @@ fun SearchScreen(
 @Composable
 private fun SearchResultsScreen(
     query: String,
+    onQueryChange: (String) -> Unit,
+    onClearQuery: () -> Unit,
     state: SearchViewState,
     onBack: () -> Unit,
     onOpenNowPlaying: (Int, List<SongModel>) -> Unit,
+    onSearch: () -> Unit,
     onDownload: (SongModel) -> Unit,
     onAddToPlaylist: (SongModel) -> Unit,
 ) {
@@ -257,16 +220,49 @@ private fun SearchResultsScreen(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text(text = query) },
+                title = {
+                    TextField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = {
+                            Text(
+                                text = stringResource(id = R.string.search_hint),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0f),
+                            focusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0f),
+                            unfocusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0f),
+                            cursorColor = MaterialTheme.colorScheme.primary,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = null)
+                    }
+                },
+                actions = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = onClearQuery) {
+                            Icon(imageVector = Icons.Filled.Close, contentDescription = null)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
                     navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                    actionIconContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
             )
         },
@@ -302,5 +298,67 @@ private fun SearchResultsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SearchHomeTopBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    onFocusChange: (Boolean) -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        TextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { onFocusChange(it.isFocused) },
+            singleLine = true,
+            placeholder = {
+                Text(
+                    text = stringResource(id = R.string.search_hint),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = null,
+                )
+            },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = null,
+                        )
+                    }
+                }
+            },
+            textStyle = MaterialTheme.typography.bodyLarge,
+            shape = RoundedCornerShape(28.dp),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                focusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0f),
+                unfocusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0f),
+                cursorColor = MaterialTheme.colorScheme.primary,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                focusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+        )
     }
 }

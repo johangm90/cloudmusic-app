@@ -156,7 +156,6 @@ private fun MainContent(
     onOpenPlaylist: (PlaylistModel) -> Unit,
 ) {
     var destination by remember { mutableStateOf(HomeDestination.Search) }
-    var showAbout by remember { mutableStateOf(false) }
     var showChangelogDialog by remember { mutableStateOf(showChangelog) }
     val canNavigateBack =
         destination == HomeDestination.RecentlyPlayed ||
@@ -183,12 +182,6 @@ private fun MainContent(
                             )
                         },
                         actions = {
-                            IconButton(onClick = { showAbout = true }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_info_black_24dp),
-                                    contentDescription = "About",
-                                )
-                            }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = Color.Transparent,
@@ -293,17 +286,6 @@ private fun MainContent(
                 }
             }
         }
-    }
-
-    if (showAbout) {
-        AlertDialog(
-            onDismissRequest = { showAbout = false },
-            title = { Text(text = stringResource(id = R.string.about)) },
-            text = { HtmlText(html = stringResource(id = R.string.about_body)) },
-            confirmButton = {
-                TextButton(onClick = { showAbout = false }) { Text(text = "OK") }
-            },
-        )
     }
 
     if (showChangelogDialog) {

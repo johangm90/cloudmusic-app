@@ -72,10 +72,10 @@ fun PlaybackControlsBar(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clickable { onOpenNowPlaying() },
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
         tonalElevation = 2.dp,
         shadowElevation = 0.dp,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
             width = 1.dp,
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
@@ -84,7 +84,7 @@ fun PlaybackControlsBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {

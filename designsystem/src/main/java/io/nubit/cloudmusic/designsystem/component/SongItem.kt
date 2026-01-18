@@ -60,7 +60,7 @@ fun SongItem(
         Row(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
         ) {
             Log.d("COVER", "Image URL: $imageUrl")
             AsyncImage(
@@ -91,7 +91,7 @@ fun SongItem(
                 )
                 Text(
                     text = artistName.joinToString(", "),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     maxLines = 1,
                     style = MaterialTheme.typography.bodySmall,
                     overflow = TextOverflow.Ellipsis

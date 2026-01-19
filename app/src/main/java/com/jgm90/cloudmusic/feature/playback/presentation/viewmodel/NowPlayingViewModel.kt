@@ -19,6 +19,7 @@ import com.jgm90.cloudmusic.core.event.IsPlayingEvent
 import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
 import com.jgm90.cloudmusic.core.event.VisualizerBandsEvent
+import com.jgm90.cloudmusic.core.innertube.YouTubeRepository
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.network.RestInterface
 import com.jgm90.cloudmusic.core.playback.LyricLine
@@ -47,6 +48,7 @@ import javax.inject.Inject
 class NowPlayingViewModel @Inject constructor(
     application: Application,
     private val restInterface: RestInterface,
+    private val youTubeRepository: YouTubeRepository,
     private val libraryRepository: LibraryRepository,
     private val settingsRepository: SettingsRepository,
 ) : AndroidViewModel(application) {
@@ -211,17 +213,18 @@ class NowPlayingViewModel @Inject constructor(
 
     private fun loadSongDetails(song: SongModel) {
         val context = getApplication<Application>()
-        val picUrl = if (!TextUtils.isEmpty(song.local_thumbnail)) {
-            song.local_thumbnail
-        } else {
-            SharedUtils.server + "pic/" + song.pic_id
+        val picUrl = when {
+            !song.local_thumbnail.isNullOrEmpty() -> song.local_thumbnail.orEmpty()
+            song.isYouTubeSource() -> song.getCoverThumbnail()
+            !song.pic_id.isNullOrEmpty() -> SharedUtils.server + "pic/" + song.pic_id
+            else -> ""
         }
 
         _uiState.update {
             it.copy(
                 songTitle = song.name,
                 songArtist = TextUtils.join(", ", song.artist),
-                coverUrl = picUrl.orEmpty()
+                coverUrl = picUrl
             )
         }
 
@@ -236,7 +239,7 @@ class NowPlayingViewModel @Inject constructor(
             _uiState.update { it.copy(isLiked = liked) }
         }
 
-        val coverUrl = picUrl.orEmpty()
+        val coverUrl = picUrl
         if (coverUrl.isNotEmpty() && coverUrl != lastPaletteUrl) {
             lastPaletteUrl = coverUrl
             updatePaletteFromCover(coverUrl)
@@ -267,20 +270,25 @@ class NowPlayingViewModel @Inject constructor(
             }
         } else {
             viewModelScope.launch {
-                runCatching {
-                    withContext(Dispatchers.IO) {
-                        restInterface.getLyrics(song.id)
-                    }
-                }.onSuccess { lyric ->
-                    if (!lyric?.lyric.isNullOrEmpty()) {
-                        lyric.lyric?.let { lrc ->
-                            lyrics = Lyrics.parse(lrc)
-                            startLyricsSync()
+                val lyricText = runCatching {
+                    if (song.isYouTubeSource()) {
+                        val lyricId = song.lyric_id ?: song.id
+                        if (lyricId.isNullOrBlank()) {
+                            null
+                        } else {
+                            youTubeRepository.getLyrics(lyricId)?.lyric
                         }
                     } else {
-                        _uiState.update { it.copy(currentLyric = "No lyrics found", nextLyric = "") }
+                        withContext(Dispatchers.IO) {
+                            restInterface.getLyrics(song.id)?.lyric
+                        }
                     }
-                }.onFailure {
+                }.getOrNull()
+
+                if (!lyricText.isNullOrEmpty()) {
+                    lyrics = Lyrics.parse(lyricText)
+                    startLyricsSync()
+                } else {
                     _uiState.update { it.copy(currentLyric = "No lyrics found", nextLyric = "") }
                 }
             }

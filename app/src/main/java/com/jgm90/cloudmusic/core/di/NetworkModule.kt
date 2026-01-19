@@ -1,5 +1,7 @@
 package com.jgm90.cloudmusic.core.di
 
+import com.jgm90.cloudmusic.core.innertube.InnerTube
+import com.jgm90.cloudmusic.core.innertube.YouTubeRepository
 import com.jgm90.cloudmusic.core.network.RestInterface
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import dagger.Module
@@ -20,12 +22,12 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         val logging = HttpLoggingInterceptor()
-        logging.setLevel(HttpLoggingInterceptor.Level.NONE)
+        logging.setLevel(HttpLoggingInterceptor.Level.BODY)
         return OkHttpClient.Builder()
             .addInterceptor(logging)
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
@@ -43,5 +45,17 @@ object NetworkModule {
     @Singleton
     fun provideRestInterface(retrofit: Retrofit): RestInterface {
         return retrofit.create(RestInterface::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideInnerTube(client: OkHttpClient): InnerTube {
+        return InnerTube(httpClient = client)
+    }
+
+    @Provides
+    @Singleton
+    fun provideYouTubeRepository(innerTube: InnerTube): YouTubeRepository {
+        return YouTubeRepository(innerTube)
     }
 }

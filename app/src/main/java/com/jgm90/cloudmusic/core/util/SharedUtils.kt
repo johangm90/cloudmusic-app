@@ -14,8 +14,7 @@ import java.util.Locale
 
 object SharedUtils {
     @JvmField
-    var server: String = "https://cloudmusicapi.nubit.io/netease/"
-
+    var server: String = "https://musicapi.nubit.io/"
     @JvmField
     var rv_anim_duration: Int = 300
 

@@ -7,10 +7,9 @@ import android.util.Log
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import com.jgm90.cloudmusic.core.app.BaseActivity
+import com.jgm90.cloudmusic.core.innertube.YouTubeRepository
 import com.jgm90.cloudmusic.core.model.SongModel
-import com.jgm90.cloudmusic.core.network.RestInterface
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
-import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
 import com.jgm90.cloudmusic.feature.playlist.presentation.viewmodel.PlaylistViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -24,17 +23,26 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.TimeUnit
 
 @AndroidEntryPoint
 class PlaylistDetailActivity : BaseActivity() {
     @Inject
-    lateinit var restInterface: RestInterface
+    lateinit var youTubeRepository: YouTubeRepository
+
     private val viewModel by viewModels<PlaylistViewModel>()
 
     private var playlistId = 0
     private var playlistName = ""
     private var playlistOffline = 0
     private var playlistCount = 0
+
+    private val httpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .build()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -122,87 +130,109 @@ class PlaylistDetailActivity : BaseActivity() {
     }
 
     private fun downloadSong(song: SongModel) {
+        val songId = song.id ?: return
+
         CoroutineScope(Dispatchers.IO).launch {
-            val songUrl = SharedUtils.server + "play/" + song.id + "/320"
-            val filename = song.id + ".mp3"
-            val client = OkHttpClient()
-            val request = Request.Builder().url(songUrl).build()
+            // Get the stream URL from YouTube
+            val streamUrl = youTubeRepository.getStreamUrl(songId)
+            if (streamUrl == null) {
+                Log.e("App", "Failed to get stream URL for song: ${song.name}")
+                return@launch
+            }
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val inputStream: InputStream = response.body?.byteStream() ?: return@launch
-                val directory = File(this@PlaylistDetailActivity.filesDir, "downloads/music")
-                if (!directory.exists()) {
-                    directory.mkdirs()
+            val filename = songId + ".mp3"
+            val request = Request.Builder().url(streamUrl).build()
+
+            runCatching {
+                val response = httpClient.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val inputStream: InputStream = response.body?.byteStream() ?: return@runCatching
+                    val directory = File(this@PlaylistDetailActivity.filesDir, "downloads/music")
+                    if (!directory.exists()) {
+                        directory.mkdirs()
+                    }
+                    val file = File(directory, filename)
+
+                    val outputStream: OutputStream = FileOutputStream(file)
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Int
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                    }
+
+                    outputStream.flush()
+                    outputStream.close()
+                    inputStream.close()
+                    song.local_file = directory.absolutePath + "/" + filename
+                    viewModel.updateSong(song)
+                    Log.d("App", "Downloaded song: ${song.name}")
+                } else {
+                    Log.e("App", "Failed to download song(${song.name}): ${response.code}")
                 }
-                val file = File(directory, filename)
-
-                val outputStream: OutputStream = FileOutputStream(file)
-                val buffer = ByteArray(4096)
-                var bytesRead: Int
-                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                    outputStream.write(buffer, 0, bytesRead)
-                }
-
-                outputStream.flush()
-                outputStream.close()
-                inputStream.close()
-                song.local_file = directory.absolutePath + "/" + filename
-                viewModel.updateSong(song)
-            } else {
-                Log.e("App", "Failed to download song(${song.name}): ${response.code}")
+            }.onFailure { error ->
+                Log.e("App", "Error downloading song(${song.name}): ${error.message}")
             }
         }
     }
 
     private fun downloadThumbnail(song: SongModel) {
         CoroutineScope(Dispatchers.IO).launch {
-            val coverUrl = SharedUtils.server + "pic/" + song.pic_id
-            val filename = song.pic_id + ".jpg"
-            val client = OkHttpClient()
+            // Use getCoverThumbnail which handles both album art URLs and video thumbnails
+            val coverUrl = song.getCoverThumbnail()
+            if (coverUrl.isEmpty()) {
+                Log.d("App", "No thumbnail URL for: ${song.name}")
+                return@launch
+            }
+
+            // Generate filename from video ID for consistency
+            val filename = (song.id ?: return@launch) + ".jpg"
             val request = Request.Builder().url(coverUrl).build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val inputStream: InputStream = response.body?.byteStream() ?: return@launch
-                val directory = File(this@PlaylistDetailActivity.filesDir, "downloads/cover")
-                if (!directory.exists()) {
-                    directory.mkdirs()
-                }
-                val file = File(directory, filename)
+            runCatching {
+                val response = httpClient.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val inputStream: InputStream = response.body?.byteStream() ?: return@runCatching
+                    val directory = File(this@PlaylistDetailActivity.filesDir, "downloads/cover")
+                    if (!directory.exists()) {
+                        directory.mkdirs()
+                    }
+                    val file = File(directory, filename)
 
-                val outputStream: OutputStream = FileOutputStream(file)
-                val buffer = ByteArray(4096)
-                var bytesRead: Int
-                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                    outputStream.write(buffer, 0, bytesRead)
-                }
+                    val outputStream: OutputStream = FileOutputStream(file)
+                    val buffer = ByteArray(4096)
+                    var bytesRead: Int
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                    }
 
-                outputStream.flush()
-                outputStream.close()
-                inputStream.close()
-                song.local_thumbnail = directory.absolutePath + "/" + filename
-                viewModel.updateSong(song)
-            } else {
-                Log.e("App", "Failed to download cover(${song.name}): ${response.code}")
+                    outputStream.flush()
+                    outputStream.close()
+                    inputStream.close()
+                    song.local_thumbnail = directory.absolutePath + "/" + filename
+                    viewModel.updateSong(song)
+                    Log.d("App", "Downloaded thumbnail: ${song.name}")
+                } else {
+                    Log.e("App", "Failed to download cover(${song.name}): ${response.code}")
+                }
+            }.onFailure { error ->
+                Log.e("App", "Error downloading cover(${song.name}): ${error.message}")
             }
         }
     }
 
     private fun downloadLyric(song: SongModel) {
+        val lyricId = song.lyric_id ?: return
+
         CoroutineScope(Dispatchers.IO).launch {
-            runCatching { restInterface.getLyrics(song.lyric_id) }
-                .onSuccess { lyric ->
-                    if (!lyric?.lyric.isNullOrEmpty()) {
-                        song.local_lyric = lyric.lyric
-                        viewModel.updateSong(song)
-                    } else {
-                        Log.e("App", "Bad response")
-                    }
-                }
-                .onFailure {
-                    Log.e("App", "Fail to get lyrics")
-                }
+            // Get lyrics from LRCLIB via YouTubeRepository
+            val lyricModel = youTubeRepository.getLyrics(lyricId)
+            if (lyricModel != null && !lyricModel.lyric.isNullOrEmpty()) {
+                song.local_lyric = lyricModel.lyric
+                viewModel.updateSong(song)
+                Log.d("App", "Downloaded lyrics for: ${song.name}")
+            } else {
+                Log.d("App", "No lyrics found for: ${song.name}")
+            }
         }
     }
 }

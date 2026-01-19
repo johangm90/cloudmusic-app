@@ -3,7 +3,7 @@ package com.jgm90.cloudmusic.feature.search.presentation.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jgm90.cloudmusic.core.network.RestInterface
+import com.jgm90.cloudmusic.core.innertube.YouTubeRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
-    private val api: RestInterface,
+    private val youTubeRepository: YouTubeRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SearchViewState())
     val uiState = _uiState.asStateFlow()
@@ -22,7 +22,7 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching {
                 _uiState.update { it.copy(isLoading = true) }
-                api.getSongs(query, 1, 50)
+                youTubeRepository.searchSongs(query)
             }.onSuccess { result ->
                 Log.d("SEARCH", "search: $result")
                 _uiState.update {

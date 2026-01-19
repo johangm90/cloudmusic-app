@@ -46,6 +46,8 @@ import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
 import com.jgm90.cloudmusic.core.event.PlaybackInfoEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
 import com.jgm90.cloudmusic.core.event.VisualizerBandsEvent
+import com.jgm90.cloudmusic.core.innertube.InnerTube
+import com.jgm90.cloudmusic.core.innertube.YouTubeRepository
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
 import com.jgm90.cloudmusic.core.playback.PlaybackStatus
@@ -63,6 +65,7 @@ import okhttp3.Request
 import retrofit2.Call
 import java.io.File
 import java.util.Random
+import java.util.concurrent.TimeUnit
 
 class MediaPlayerService : Service(),
     MediaPlayer.OnCompletionListener,
@@ -106,7 +109,18 @@ class MediaPlayerService : Service(),
     private var lastBeatEmitMs = 0L
     private val eventScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var eventJobs: List<Job> = emptyList()
-    private val httpClient = OkHttpClient()
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    // YouTube InnerTube integration
+    private val innerTube by lazy {
+        InnerTube(httpClient)
+    }
+    private val youTubeRepository by lazy {
+        YouTubeRepository(innerTube)
+    }
 
     private val audioNoisyReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -478,21 +492,53 @@ class MediaPlayerService : Service(),
                     .build(),
             )
         }
-        activeAudio?.let {
-            val id = it.id ?: return@let
+        activeAudio?.let { audio ->
+            val id = audio.id ?: return@let
             try {
                 currentIndex = -1
-                val source = if (!TextUtils.isEmpty(it.local_file)) {
-                    val localFile = requireNotNull(it.local_file)
-                    val songFile = File(localFile)
-                    if (songFile.exists()) localFile else SharedUtils.server + "play/" + id + "/160"
-                } else {
-                    SharedUtils.server + "play/" + id + "/160"
-                }
-                Log.d("MediaPlayer", source)
                 preparingSource = true
                 val token = ++prepareToken
+
                 eventScope.launch {
+                    val source = withContext(Dispatchers.IO) {
+                        // Check for local file first
+                        if (!TextUtils.isEmpty(audio.local_file)) {
+                            val localFile = requireNotNull(audio.local_file)
+                            val songFile = File(localFile)
+                            if (songFile.exists()) {
+                                return@withContext localFile
+                            }
+                        }
+
+                        // For YouTube sources, fetch the stream URL
+                        if (audio.isYouTubeSource()) {
+                            Log.d("MediaPlayer", "Fetching YouTube stream URL for: $id")
+                            val streamUrl = youTubeRepository.getStreamUrl(id)
+                            if (streamUrl != null) {
+                                Log.d("MediaPlayer", "Got stream URL: ${streamUrl.take(100)}...")
+                                return@withContext streamUrl
+                            } else {
+                                Log.e("MediaPlayer", "Failed to get stream URL for: $id")
+                                return@withContext null
+                            }
+                        }
+
+                        // Fallback for legacy sources (shouldn't happen with YouTube-only)
+                        SharedUtils.server + "play/" + id
+                    }
+
+                    if (token != prepareToken) {
+                        return@launch
+                    }
+
+                    if (source == null) {
+                        preparingSource = false
+                        handlePlaybackError("Failed to get audio source")
+                        return@launch
+                    }
+
+                    Log.d("MediaPlayer", "Setting data source: ${source.take(100)}...")
+
                     val setResult = withContext(Dispatchers.IO) {
                         if (token != prepareToken || mediaPlayer == null) {
                             return@withContext false
@@ -501,14 +547,17 @@ class MediaPlayerService : Service(),
                             mediaPlayer?.setDataSource(source)
                         }.isSuccess
                     }
+
                     if (token != prepareToken) {
                         return@launch
                     }
                     preparingSource = false
+
                     if (!setResult) {
                         handlePlaybackError("Failed to set data source")
                         return@launch
                     }
+
                     isPrepared = false
                     runCatching {
                         mediaPlayer?.prepareAsync()
@@ -876,11 +925,10 @@ class MediaPlayerService : Service(),
             return
         }
         val candidates = mutableListOf<String>()
-        if (!TextUtils.isEmpty(current.local_thumbnail)) {
-            candidates.add(current.local_thumbnail ?: "")
-        }
-        if (!TextUtils.isEmpty(current.pic_id)) {
-            candidates.add(SharedUtils.server + "pic/" + current.pic_id)
+        // Use getCoverThumbnail which handles both local and remote URLs
+        val coverUrl = current.getCoverThumbnail()
+        if (coverUrl.isNotEmpty()) {
+            candidates.add(coverUrl)
         }
         eventScope.launch(Dispatchers.IO) {
             val bitmap = loadBitmapFromCandidates(candidates)
@@ -933,13 +981,7 @@ class MediaPlayerService : Service(),
 
     private fun publishPlaybackInfo(isPlayingOverride: Boolean? = null) {
         val current = activeAudio ?: song ?: return
-        val artUrl = if (!TextUtils.isEmpty(current.local_thumbnail)) {
-            current.local_thumbnail ?: ""
-        } else if (!TextUtils.isEmpty(current.pic_id)) {
-            SharedUtils.server + "pic/" + current.pic_id
-        } else {
-            ""
-        }
+        val artUrl = current.getCoverThumbnail()
         val isPlaying = isPlayingOverride ?: (mediaPlayer?.isPlaying == true)
         AppEventBus.postSticky(
             PlaybackInfoEvent(
@@ -1156,12 +1198,7 @@ class MediaPlayerService : Service(),
 
         @JvmStatic
         fun getAlbumArtUrl(): String {
-            val current = song ?: return ""
-            return if (!TextUtils.isEmpty(current.local_thumbnail)) {
-                current.local_thumbnail ?: ""
-            } else {
-                SharedUtils.server + "pic/" + current.pic_id
-            }
+            return song?.getCoverThumbnail() ?: ""
         }
     }
 }

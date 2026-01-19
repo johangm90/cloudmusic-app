@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -59,6 +62,7 @@ import com.jgm90.cloudmusic.feature.search.presentation.viewmodel.SearchViewStat
 import io.nubit.cloudmusic.designsystem.component.EmptyState
 import io.nubit.cloudmusic.designsystem.component.Loader
 import io.nubit.cloudmusic.designsystem.component.SongItem
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 private enum class SearchMode {
     Home,
@@ -107,6 +111,7 @@ fun SearchScreen(
             },
             onOpenNowPlaying = onOpenNowPlaying,
             onSearch = { submitSearch() },
+            onLoadMore = { viewModel.loadMore() },
             onDownload = { song ->
                 AppEventBus.postSticky(
                     DownloadEvent(
@@ -213,9 +218,27 @@ private fun SearchResultsScreen(
     onBack: () -> Unit,
     onOpenNowPlaying: (Int, List<SongModel>) -> Unit,
     onSearch: () -> Unit,
+    onLoadMore: () -> Unit,
     onDownload: (SongModel) -> Unit,
     onAddToPlaylist: (SongModel) -> Unit,
 ) {
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(state.searchResults.size, state.hasMore, state.isLoadingMore) {
+        snapshotFlow {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+        }
+            .distinctUntilChanged()
+            .collect { lastVisibleIndex ->
+                val totalCount = listState.layoutInfo.totalItemsCount
+                if (state.hasMore && !state.isLoadingMore && totalCount > 0) {
+                    if (lastVisibleIndex >= totalCount - 5) {
+                        onLoadMore()
+                    }
+                }
+            }
+    }
+
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
@@ -281,7 +304,10 @@ private fun SearchResultsScreen(
                     modifier = Modifier.padding(padding),
                 )
             } else {
-                LazyColumn(contentPadding = padding) {
+                LazyColumn(
+                    state = listState,
+                    contentPadding = padding,
+                ) {
                     itemsIndexed(state.searchResults) { index, song ->
                         SongItem(
                             imageUrl = song.getCoverThumbnail(),
@@ -294,6 +320,21 @@ private fun SearchResultsScreen(
                             onDownloadClick = { onDownload(song) },
                             onAddToPlaylistClick = { onAddToPlaylist(song) },
                         )
+                    }
+                    if (state.isLoadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    strokeWidth = 3.dp,
+                                )
+                            }
+                        }
                     }
                 }
             }

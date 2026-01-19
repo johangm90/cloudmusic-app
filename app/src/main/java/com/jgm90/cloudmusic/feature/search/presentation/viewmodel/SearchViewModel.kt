@@ -21,21 +21,63 @@ class SearchViewModel @Inject constructor(
     fun search(query: String) {
         viewModelScope.launch {
             runCatching {
-                _uiState.update { it.copy(isLoading = true) }
-                youTubeRepository.searchSongs(query)
+                _uiState.update {
+                    it.copy(
+                        searchText = query,
+                        isLoading = true,
+                        isLoadingMore = false,
+                        error = null,
+                        searchResults = emptyList(),
+                        continuation = null,
+                        hasMore = false,
+                    )
+                }
+                youTubeRepository.searchSongsWithPagination(query)
             }.onSuccess { result ->
                 Log.d("SEARCH", "search: $result")
                 _uiState.update {
                     it.copy(
-                        searchText = query,
                         isLoading = false,
-                        searchResults = result
+                        searchResults = result.songs,
+                        continuation = result.continuation,
+                        hasMore = result.hasMore
                     )
                 }
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        error = error.message
+                    )
+                }
+            }
+        }
+    }
+
+    fun loadMore() {
+        val current = _uiState.value
+        if (current.isLoading || current.isLoadingMore || !current.hasMore) return
+        val query = current.searchText.trim()
+        val continuation = current.continuation
+        if (query.isEmpty() || continuation.isNullOrEmpty()) return
+
+        viewModelScope.launch {
+            runCatching {
+                _uiState.update { it.copy(isLoadingMore = true, error = null) }
+                youTubeRepository.searchSongsWithPagination(query, continuation)
+            }.onSuccess { result ->
+                _uiState.update {
+                    it.copy(
+                        isLoadingMore = false,
+                        searchResults = it.searchResults + result.songs,
+                        continuation = result.continuation,
+                        hasMore = result.hasMore
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(
+                        isLoadingMore = false,
                         error = error.message
                     )
                 }

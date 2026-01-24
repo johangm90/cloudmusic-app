@@ -56,7 +56,7 @@ fun PlaybackControls(
             Icon(
                 painter = painterResource(R.drawable.ic_shuffle_black_24dp),
                 contentDescription = "Shuffle",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onSurface,
             )
         }
         IconButton(
@@ -72,7 +72,7 @@ fun PlaybackControls(
             Icon(
                 painter = painterResource(R.drawable.ic_skip_previous),
                 contentDescription = "Previous",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onSurface,
             )
         }
         IconButton(
@@ -111,7 +111,7 @@ fun PlaybackControls(
             Icon(
                 painter = painterResource(R.drawable.ic_skip_next),
                 contentDescription = "Next",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onSurface,
             )
         }
         IconButton(onClick = onRepeat, enabled = enabled) {
@@ -122,7 +122,7 @@ fun PlaybackControls(
             Icon(
                 painter = painterResource(iconRes),
                 contentDescription = "Repeat mode",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onSurface,
             )
         }
     }

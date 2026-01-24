@@ -127,7 +127,7 @@ private fun OptionSettingItem(
         Text(
             text = title,
             style = MaterialTheme.typography.bodyLarge,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Row(
@@ -139,7 +139,7 @@ private fun OptionSettingItem(
                 Text(
                     text = option,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.7f),
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(

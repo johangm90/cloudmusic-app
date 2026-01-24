@@ -72,14 +72,14 @@ fun LibraryScreen(
                         headlineContent = {
                             Text(
                                 text = stringResource(id = R.string.recently_played),
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         },
                         leadingContent = {
                             Icon(
                                 imageVector = Icons.Filled.History,
                                 contentDescription = null,
-                                tint = Color.White
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -99,14 +99,14 @@ fun LibraryScreen(
                         headlineContent = {
                             Text(
                                 text = stringResource(id = R.string.liked_songs),
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         },
                         leadingContent = {
                             Icon(
                                 imageVector = Icons.Filled.Favorite,
                                 contentDescription = null,
-                                tint = Color.White
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -216,7 +216,7 @@ private fun PlaylistRow(
         shape = RoundedCornerShape(16.dp),
     ) {
         ListItem(
-            headlineContent = { Text(text = playlist.name, color = Color.White) },
+            headlineContent = { Text(text = playlist.name, color = MaterialTheme.colorScheme.onSurface) },
             supportingContent = {
                 Text(
                     text = pluralStringResource(
@@ -224,7 +224,7 @@ private fun PlaylistRow(
                         count = playlist.song_count,
                         playlist.song_count,
                     ),
-                    color = Color.White.copy(alpha = 0.65f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
             leadingContent = {
@@ -241,7 +241,7 @@ private fun PlaylistRow(
                         Icon(
                             painter = painterResource(R.drawable.ic_more_vert_black_24dp),
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                     DropdownMenu(

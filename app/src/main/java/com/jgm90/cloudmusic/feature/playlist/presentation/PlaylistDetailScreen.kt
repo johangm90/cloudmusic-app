@@ -105,7 +105,10 @@ fun PlaylistDetailScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Text(text = "Disponible offline", color = Color.White)
+                            Text(
+                                text = "Disponible offline",
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                             Switch(
                                 checked = offline,
                                 onCheckedChange = {
@@ -143,12 +146,12 @@ fun PlaylistDetailScreen(
                                         Text(
                                             text = song.name,
                                             style = MaterialTheme.typography.bodyLarge,
-                                            color = Color.White
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
                                             text = song.artist.joinToString(","),
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = Color.White.copy(alpha = 0.65f),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
                                     var menuExpanded by remember(song.id) { mutableStateOf(false) }
@@ -157,7 +160,7 @@ fun PlaylistDetailScreen(
                                             Icon(
                                                 painter = painterResource(R.drawable.ic_more_vert_black_24dp),
                                                 contentDescription = null,
-                                                tint = Color.White,
+                                                tint = MaterialTheme.colorScheme.onSurface,
                                             )
                                         }
                                         DropdownMenu(

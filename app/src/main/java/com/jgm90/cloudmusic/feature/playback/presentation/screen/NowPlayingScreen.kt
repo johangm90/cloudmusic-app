@@ -19,7 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -79,13 +78,13 @@ fun NowPlayingScreen(
                 Text(
                     text = uiState.songTitle.ifEmpty { "Reproduciendo" },
                     style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
                     text = uiState.songArtist,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -102,7 +101,7 @@ fun NowPlayingScreen(
                     Text(
                         text = "Cargando...",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -116,7 +115,7 @@ fun NowPlayingScreen(
                 onSeekChange = { viewModel.onAction(NowPlayingAction.UpdateProgress(it)) },
                 onSeekEnd = { viewModel.onAction(NowPlayingAction.StopSeeking) },
                 activeColor = accentColor,
-                inactiveColor = Color.White.copy(alpha = 0.2f),
+                inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 enabled = !isLoading,
             )
 
@@ -127,12 +126,12 @@ fun NowPlayingScreen(
                 Text(
                     text = uiState.elapsedText,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = uiState.durationText,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 

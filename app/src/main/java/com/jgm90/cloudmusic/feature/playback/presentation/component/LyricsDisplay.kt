@@ -12,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
@@ -35,7 +34,7 @@ fun LyricsDisplay(
         Text(
             text = currentLyric.ifEmpty { "No lyrics found" },
             style = MaterialTheme.typography.bodyLarge,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         )
         if (nextLyric.isNotEmpty()) {
@@ -43,7 +42,7 @@ fun LyricsDisplay(
             Text(
                 text = nextLyric,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.65f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
         }

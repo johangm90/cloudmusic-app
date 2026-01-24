@@ -16,7 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,13 +45,13 @@ fun NowPlayingTopBar(
             Icon(
                 painter = painterResource(R.drawable.ic_keyboard_arrow_down_24dp),
                 contentDescription = "Back",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onSurface,
             )
         }
         Text(
             text = "Now Playing",
             style = MaterialTheme.typography.labelLarge,
-            color = Color.White.copy(alpha = 0.8f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             letterSpacing = 2.sp,
         )
         IconButton(
@@ -67,7 +66,7 @@ fun NowPlayingTopBar(
             Icon(
                 imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                 contentDescription = if (isLiked) "Unlike" else "Like",
-                tint = if (isLiked) MaterialTheme.colorScheme.primary else Color.White
+                tint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
             )
         }
     }

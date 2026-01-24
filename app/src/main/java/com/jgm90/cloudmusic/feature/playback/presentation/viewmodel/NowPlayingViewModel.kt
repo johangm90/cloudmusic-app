@@ -1,9 +1,18 @@
 package com.jgm90.cloudmusic.feature.playback.presentation.viewmodel
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.text.TextUtils
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.palette.graphics.Palette
+import coil3.ImageLoader
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.request.allowHardware
+import coil3.toBitmap
 import com.jgm90.cloudmusic.core.data.local.repository.LibraryRepository
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.BeatEvent
@@ -19,6 +28,7 @@ import com.jgm90.cloudmusic.core.playback.LyricLine
 import com.jgm90.cloudmusic.core.playback.Lyrics
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
 import com.jgm90.cloudmusic.core.util.SharedUtils
+import com.jgm90.cloudmusic.core.ui.theme.ThemeController
 import com.jgm90.cloudmusic.feature.playback.presentation.state.NowPlayingAction
 import com.jgm90.cloudmusic.feature.playback.presentation.state.NowPlayingUiState
 import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
@@ -51,6 +61,7 @@ class NowPlayingViewModel @Inject constructor(
     private var lyrics: List<LyricLine>? = null
     private var currentLineIndex = 0
     private var userSeeking = false
+    private var lastSeedUrl: String? = null
     private var progressJob: Job? = null
     private var lyricsJob: Job? = null
     private var eventJobs: List<Job> = emptyList()
@@ -258,6 +269,15 @@ class NowPlayingViewModel @Inject constructor(
             _uiState.update { it.copy(isLiked = liked) }
         }
 
+        val coverUrl = picUrl
+        if (coverUrl.isNotEmpty() && coverUrl != lastSeedUrl) {
+            lastSeedUrl = coverUrl
+            updateThemeSeed(coverUrl)
+        } else if (coverUrl.isEmpty()) {
+            lastSeedUrl = null
+            ThemeController.setSeedColor(null)
+        }
+
         val service = playerService
         if (service != null && service.isPlaying()) {
             val duration = service.duration().toInt()
@@ -311,6 +331,35 @@ class NowPlayingViewModel @Inject constructor(
         currentLineIndex = 0
         lyrics = null
         _uiState.update { it.copy(currentLyric = "", nextLyric = "") }
+    }
+
+    private fun updateThemeSeed(url: String) {
+        val cover = url.trim()
+        if (cover.isEmpty()) {
+            ThemeController.setSeedColor(null)
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val context = getApplication<Application>()
+            val loader = ImageLoader(context)
+            val request = ImageRequest.Builder(context)
+                .data(cover)
+                .allowHardware(false)
+                .build()
+            val result = loader.execute(request) as? SuccessResult ?: return@launch
+            val bitmap = result.image.toBitmap().let { source ->
+                if (source.config == Bitmap.Config.HARDWARE) {
+                    source.copy(Bitmap.Config.ARGB_8888, false)
+                } else {
+                    source
+                }
+            }
+            val fallback = Color(0xFF0B1118).toArgb()
+            val dominant = Palette.from(bitmap).generate().getDominantColor(fallback)
+            withContext(Dispatchers.Main) {
+                ThemeController.setSeedColor(Color(dominant))
+            }
+        }
     }
 
 

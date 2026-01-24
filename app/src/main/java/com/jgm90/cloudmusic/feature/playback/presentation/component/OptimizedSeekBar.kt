@@ -27,6 +27,7 @@ fun OptimizedSeekBar(
     onSeekEnd: () -> Unit,
     activeColor: Color,
     inactiveColor: Color,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val sizeState = remember { mutableStateOf(IntSize(1, 1)) }
@@ -38,16 +39,22 @@ fun OptimizedSeekBar(
             .fillMaxWidth()
             .height(30.dp)
             .onSizeChanged { sizeState.value = it }
-            .pointerInput(max) {
-                detectDragGestures(
-                    onDragStart = { onSeekStart() },
-                    onDragEnd = { onSeekEnd() },
-                    onDragCancel = { onSeekEnd() },
-                ) { change, _ ->
-                    change.consume()
-                    val x = change.position.x.coerceIn(0f, sizeState.value.width.toFloat())
-                    val newValue = ((x / sizeState.value.width) * max).toInt()
-                    onSeekChange(newValue)
+            .let { base ->
+                if (!enabled) {
+                    base
+                } else {
+                    base.pointerInput(max) {
+                        detectDragGestures(
+                            onDragStart = { onSeekStart() },
+                            onDragEnd = { onSeekEnd() },
+                            onDragCancel = { onSeekEnd() },
+                        ) { change, _ ->
+                            change.consume()
+                            val x = change.position.x.coerceIn(0f, sizeState.value.width.toFloat())
+                            val newValue = ((x / sizeState.value.width) * max).toInt()
+                            onSeekChange(newValue)
+                        }
+                    }
                 }
             }
     ) {

@@ -44,6 +44,7 @@ import com.jgm90.cloudmusic.core.event.BeatEvent
 import com.jgm90.cloudmusic.core.event.IsPlayingEvent
 import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
 import com.jgm90.cloudmusic.core.event.PlaybackInfoEvent
+import com.jgm90.cloudmusic.core.event.PlaybackLoadingEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
 import com.jgm90.cloudmusic.core.event.VisualizerBandsEvent
 import com.jgm90.cloudmusic.core.innertube.InnerTube
@@ -161,6 +162,9 @@ class MediaPlayerService : Service(),
 
     private val userActions: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            if (preparingSource || !isPrepared) {
+                return
+            }
             val action = intent.action
             Log.d("userActions", "Received intent with action $action")
             when (action) {
@@ -204,6 +208,7 @@ class MediaPlayerService : Service(),
 
             override fun onPlay() {
                 super.onPlay()
+                if (preparingSource || !isPrepared) return
                 resumeMedia()
                 setMediaPlaybackState(PlaybackStateCompat.STATE_PLAYING)
                 buildNotification(PlaybackStatus.PLAYING)
@@ -212,6 +217,7 @@ class MediaPlayerService : Service(),
 
             override fun onPause() {
                 super.onPause()
+                if (preparingSource || !isPrepared) return
                 pauseMedia()
                 setMediaPlaybackState(PlaybackStateCompat.STATE_PAUSED)
                 buildNotification(PlaybackStatus.PAUSED)
@@ -220,6 +226,7 @@ class MediaPlayerService : Service(),
 
             override fun onSkipToPrevious() {
                 super.onSkipToPrevious()
+                if (preparingSource) return
                 skipToPrevious()
                 setMediaPlaybackState(PlaybackStateCompat.STATE_PLAYING)
                 buildNotification(PlaybackStatus.PLAYING)
@@ -227,6 +234,7 @@ class MediaPlayerService : Service(),
 
             override fun onSkipToNext() {
                 super.onSkipToNext()
+                if (preparingSource) return
                 skipToNext()
                 setMediaPlaybackState(PlaybackStateCompat.STATE_PLAYING)
                 buildNotification(PlaybackStatus.PLAYING)
@@ -408,6 +416,7 @@ class MediaPlayerService : Service(),
         consecutiveErrorCount = 0
         errorRecoveryInProgress = false
         isPrepared = true
+        AppEventBus.postSticky(PlaybackLoadingEvent(false))
         playMedia()
         startVisualizer(mp.audioSessionId)
         updateMetaData(currentArt)
@@ -497,6 +506,7 @@ class MediaPlayerService : Service(),
             try {
                 currentIndex = -1
                 preparingSource = true
+                AppEventBus.postSticky(PlaybackLoadingEvent(true))
                 val token = ++prepareToken
 
                 eventScope.launch {
@@ -533,6 +543,7 @@ class MediaPlayerService : Service(),
 
                     if (source == null) {
                         preparingSource = false
+                        AppEventBus.postSticky(PlaybackLoadingEvent(false))
                         handlePlaybackError("Failed to get audio source")
                         return@launch
                     }
@@ -554,6 +565,7 @@ class MediaPlayerService : Service(),
                     preparingSource = false
 
                     if (!setResult) {
+                        AppEventBus.postSticky(PlaybackLoadingEvent(false))
                         handlePlaybackError("Failed to set data source")
                         return@launch
                     }
@@ -562,11 +574,13 @@ class MediaPlayerService : Service(),
                     runCatching {
                         mediaPlayer?.prepareAsync()
                     }.onFailure { error ->
+                        AppEventBus.postSticky(PlaybackLoadingEvent(false))
                         handlePlaybackError("prepareAsync failed: ${error.message}")
                     }
                 }
             } catch (e: Exception) {
                 preparingSource = false
+                AppEventBus.postSticky(PlaybackLoadingEvent(false))
                 handlePlaybackError("Data source error: ${e.message}")
             }
         }
@@ -580,6 +594,9 @@ class MediaPlayerService : Service(),
     }
 
     fun playOrPause() {
+        if (preparingSource || !isPrepared) {
+            return
+        }
         try {
             mediaPlayer?.let {
                 if (it.isPlaying) {
@@ -619,6 +636,9 @@ class MediaPlayerService : Service(),
 
     fun eventPlayOrPause(event: PlayPauseEvent) {
         Log.d("Event", event.message)
+        if (preparingSource || !isPrepared) {
+            return
+        }
         try {
             mediaPlayer?.let {
                 if (it.isPlaying) {
@@ -664,6 +684,9 @@ class MediaPlayerService : Service(),
     }
 
     fun seek(position: Int) {
+        if (preparingSource || !isPrepared) {
+            return
+        }
         if (mediaPlayer != null) {
             try {
                 mediaPlayer?.seekTo(position)
@@ -673,6 +696,7 @@ class MediaPlayerService : Service(),
     }
 
     fun skipToNext() {
+        if (preparingSource) return
         if (audioIndex == audioList.size - 1) {
             audioIndex = 0
             activeAudio = audioList[audioIndex]
@@ -696,6 +720,7 @@ class MediaPlayerService : Service(),
     }
 
     fun skipToPrevious() {
+        if (preparingSource) return
         if (audioIndex == 0) {
             audioIndex = audioList.size - 1
             activeAudio = audioList[audioIndex]
@@ -859,10 +884,15 @@ class MediaPlayerService : Service(),
 
     private fun createNotification(playbackStatus: PlaybackStatus): Notification? {
         val active = activeAudio ?: return null
+        val isLoading = preparingSource || !isPrepared
         var notificationAction = R.drawable.ic_pause
         var playPauseAction: PendingIntent? = null
         var action = "pause"
-        if (playbackStatus == PlaybackStatus.PLAYING) {
+        if (isLoading) {
+            notificationAction = android.R.drawable.ic_popup_sync
+            playPauseAction = playIntent
+            action = "loading"
+        } else if (playbackStatus == PlaybackStatus.PLAYING) {
             notificationAction = R.drawable.ic_pause
             playPauseAction = pauseIntent
             action = "pause"
@@ -909,6 +939,8 @@ class MediaPlayerService : Service(),
                 positionMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
                 false
             )
+        } else if (isLoading) {
+            notificationBuilder.setProgress(0, 0, true)
         }
         updateMetaData(currentArt)
         if (currentIndex != audioIndex) {
@@ -1132,6 +1164,7 @@ class MediaPlayerService : Service(),
     private fun handlePlaybackError(message: String) {
         Log.w("MediaPlayerService", message)
         preparingSource = false
+        AppEventBus.postSticky(PlaybackLoadingEvent(false))
         prepareToken += 1
         releaseVisualizer()
         if (errorRecoveryInProgress) {

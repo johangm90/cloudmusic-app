@@ -9,6 +9,7 @@ import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.BeatEvent
 import com.jgm90.cloudmusic.core.event.IsPlayingEvent
 import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
+import com.jgm90.cloudmusic.core.event.PlaybackLoadingEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
 import com.jgm90.cloudmusic.core.event.VisualizerBandsEvent
 import com.jgm90.cloudmusic.core.innertube.YouTubeRepository
@@ -98,7 +99,10 @@ class NowPlayingViewModel @Inject constructor(
             },
             AppEventBus.observe<VisualizerBandsEvent>(viewModelScope, receiveSticky = false) { event ->
                 _uiState.update { it.copy(visualizerBands = event.bands) }
-            }
+            },
+            AppEventBus.observe<PlaybackLoadingEvent>(viewModelScope) { event ->
+                _uiState.update { it.copy(isLoading = event.isLoading) }
+            },
         )
     }
 

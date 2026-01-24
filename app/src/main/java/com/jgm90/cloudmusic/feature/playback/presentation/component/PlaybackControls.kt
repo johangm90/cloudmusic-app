@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +28,8 @@ fun PlaybackControls(
     shuffleEnabled: Boolean,
     repeatMode: PlaybackMode,
     accentColor: Color,
+    isLoading: Boolean,
+    enabled: Boolean,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
@@ -47,6 +50,7 @@ fun PlaybackControls(
     ) {
         IconButton(
             onClick = onShuffle,
+            enabled = enabled,
             modifier = Modifier.alpha(if (shuffleEnabled) 1f else 0.4f)
         ) {
             Icon(
@@ -57,6 +61,7 @@ fun PlaybackControls(
         }
         IconButton(
             onClick = onPrevious,
+            enabled = enabled,
             modifier = Modifier
                 .size(46.dp)
                 .background(
@@ -72,21 +77,30 @@ fun PlaybackControls(
         }
         IconButton(
             onClick = onPlayPause,
+            enabled = enabled,
             modifier = Modifier
                 .size(64.dp)
                 .background(accentColor, CircleShape)
         ) {
-            Icon(
-                painter = painterResource(
-                    if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
-                ),
-                contentDescription = if (isPlaying) "Pause" else "Play",
-                modifier = Modifier.size(36.dp),
-                tint = MaterialTheme.colorScheme.onPrimary,
-            )
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Icon(
+                    painter = painterResource(
+                        if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_arrow
+                    ),
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    modifier = Modifier.size(36.dp),
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                )
+            }
         }
         IconButton(
             onClick = onNext,
+            enabled = enabled,
             modifier = Modifier
                 .size(46.dp)
                 .background(
@@ -100,7 +114,7 @@ fun PlaybackControls(
                 tint = Color.White,
             )
         }
-        IconButton(onClick = onRepeat) {
+        IconButton(onClick = onRepeat, enabled = enabled) {
             val iconRes = when (repeatMode) {
                 PlaybackMode.NORMAL, PlaybackMode.REPEAT -> R.drawable.ic_repeat_black_24dp
                 PlaybackMode.REPEAT_ONE -> R.drawable.ic_repeat_one_black_24dp

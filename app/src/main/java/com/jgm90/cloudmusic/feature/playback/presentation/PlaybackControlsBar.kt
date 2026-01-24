@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -34,6 +35,7 @@ import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
 import com.jgm90.cloudmusic.core.event.PlaybackInfoEvent
+import com.jgm90.cloudmusic.core.event.PlaybackLoadingEvent
 import kotlinx.coroutines.Job
 
 @Composable
@@ -45,6 +47,7 @@ fun PlaybackControlsBar(
     val subtitle = remember { mutableStateOf("") }
     val artUrl = remember { mutableStateOf("") }
     val isPlaying = remember { mutableStateOf(false) }
+    val isLoading = remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         val jobs = listOf(
@@ -53,6 +56,9 @@ fun PlaybackControlsBar(
                 subtitle.value = event.artist
                 artUrl.value = event.artUrl
                 isPlaying.value = event.isPlaying
+            },
+            AppEventBus.observe<PlaybackLoadingEvent>(scope) { event ->
+                isLoading.value = event.isLoading
             },
         )
 
@@ -121,20 +127,31 @@ fun PlaybackControlsBar(
                 color = Color.Transparent,
                 tonalElevation = 0.dp,
             ) {
-                Icon(
-                    painter = painterResource(
-                        if (isPlaying.value) R.drawable.ic_pause else R.drawable.ic_play_arrow
-                    ),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(accentGradient, CircleShape)
-                        .padding(10.dp)
-                        .clickable {
-                            AppEventBus.post(PlayPauseEvent("From Playback Controls"))
-                        },
-                )
+                if (isLoading.value) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(accentGradient, CircleShape)
+                            .padding(10.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(
+                            if (isPlaying.value) R.drawable.ic_pause else R.drawable.ic_play_arrow
+                        ),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(accentGradient, CircleShape)
+                            .padding(10.dp)
+                            .clickable {
+                                AppEventBus.post(PlayPauseEvent("From Playback Controls"))
+                            },
+                    )
+                }
             }
         }
     }

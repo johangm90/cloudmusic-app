@@ -10,6 +10,7 @@ data class NowPlayingUiState(
     val songArtist: String = "",
     val coverUrl: String = "",
     val isPlaying: Boolean = false,
+    val isLoading: Boolean = false,
     val shuffleEnabled: Boolean = false,
     val repeatMode: PlaybackMode = PlaybackMode.NORMAL,
     val progressMs: Int = 0,
@@ -34,6 +35,7 @@ data class NowPlayingUiState(
         if (songArtist != other.songArtist) return false
         if (coverUrl != other.coverUrl) return false
         if (isPlaying != other.isPlaying) return false
+        if (isLoading != other.isLoading) return false
         if (shuffleEnabled != other.shuffleEnabled) return false
         if (repeatMode != other.repeatMode) return false
         if (progressMs != other.progressMs) return false
@@ -56,6 +58,7 @@ data class NowPlayingUiState(
         result = 31 * result + songArtist.hashCode()
         result = 31 * result + coverUrl.hashCode()
         result = 31 * result + isPlaying.hashCode()
+        result = 31 * result + isLoading.hashCode()
         result = 31 * result + shuffleEnabled.hashCode()
         result = 31 * result + repeatMode.hashCode()
         result = 31 * result + progressMs

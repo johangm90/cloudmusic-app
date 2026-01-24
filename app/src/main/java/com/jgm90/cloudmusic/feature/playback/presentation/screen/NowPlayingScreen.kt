@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,6 +45,7 @@ fun NowPlayingScreen(
     val effectiveBeat = if (uiState.hasAudioPermission) uiState.beatLevel else 0f
     val playingBeat = if (uiState.isPlaying) effectiveBeat else 0f
     val accentColor = MaterialTheme.colorScheme.primary
+    val isLoading = uiState.isLoading
 
     AppBackground {
         Column(
@@ -87,6 +89,24 @@ fun NowPlayingScreen(
                 )
             }
 
+            if (isLoading) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.dp,
+                    )
+                    Text(
+                        text = "Cargando...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.7f),
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(18.dp))
 
             OptimizedSeekBar(
@@ -97,6 +117,7 @@ fun NowPlayingScreen(
                 onSeekEnd = { viewModel.onAction(NowPlayingAction.StopSeeking) },
                 activeColor = accentColor,
                 inactiveColor = Color.White.copy(alpha = 0.2f),
+                enabled = !isLoading,
             )
 
             Row(
@@ -122,6 +143,8 @@ fun NowPlayingScreen(
                 shuffleEnabled = uiState.shuffleEnabled,
                 repeatMode = uiState.repeatMode,
                 accentColor = accentColor,
+                isLoading = isLoading,
+                enabled = !isLoading,
                 onPlayPause = { viewModel.onAction(NowPlayingAction.PlayPause) },
                 onPrevious = { viewModel.onAction(NowPlayingAction.SkipToPrevious) },
                 onNext = { viewModel.onAction(NowPlayingAction.SkipToNext) },

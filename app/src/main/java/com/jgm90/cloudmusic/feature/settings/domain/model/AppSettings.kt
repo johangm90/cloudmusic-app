@@ -7,23 +7,7 @@ enum class VisualizerStyle {
     NONE,
 }
 
-enum class ParticleLevel {
-    NONE,
-    LOW,
-    MEDIUM,
-    HIGH,
-}
-
-enum class ShaderQuality {
-    LOW,
-    MEDIUM,
-    HIGH,
-}
-
 @Immutable
 data class AppSettings(
-    val ambientModeEnabled: Boolean = true,
-    val visualizerStyle: VisualizerStyle = VisualizerStyle.WAVE_RING,
-    val particleLevel: ParticleLevel = ParticleLevel.MEDIUM,
-    val shaderQuality: ShaderQuality = ShaderQuality.MEDIUM,
+    val visualizerStyle: VisualizerStyle = VisualizerStyle.NONE,
 )

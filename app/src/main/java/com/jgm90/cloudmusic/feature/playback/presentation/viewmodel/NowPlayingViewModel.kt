@@ -1,17 +1,9 @@
 package com.jgm90.cloudmusic.feature.playback.presentation.viewmodel
 
 import android.app.Application
-import android.graphics.Bitmap
 import android.text.TextUtils
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.palette.graphics.Palette
-import coil3.ImageLoader
-import coil3.request.ImageRequest
-import coil3.request.SuccessResult
-import coil3.toBitmap
 import com.jgm90.cloudmusic.core.data.local.repository.LibraryRepository
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.BeatEvent
@@ -26,7 +18,6 @@ import com.jgm90.cloudmusic.core.playback.LyricLine
 import com.jgm90.cloudmusic.core.playback.Lyrics
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
 import com.jgm90.cloudmusic.core.util.SharedUtils
-import com.jgm90.cloudmusic.feature.playback.presentation.state.AmbientColors
 import com.jgm90.cloudmusic.feature.playback.presentation.state.NowPlayingAction
 import com.jgm90.cloudmusic.feature.playback.presentation.state.NowPlayingUiState
 import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
@@ -59,7 +50,6 @@ class NowPlayingViewModel @Inject constructor(
     private var lyrics: List<LyricLine>? = null
     private var currentLineIndex = 0
     private var userSeeking = false
-    private var lastPaletteUrl: String? = null
     private var progressJob: Job? = null
     private var lyricsJob: Job? = null
     private var eventJobs: List<Job> = emptyList()
@@ -264,12 +254,6 @@ class NowPlayingViewModel @Inject constructor(
             _uiState.update { it.copy(isLiked = liked) }
         }
 
-        val coverUrl = picUrl
-        if (coverUrl.isNotEmpty() && coverUrl != lastPaletteUrl) {
-            lastPaletteUrl = coverUrl
-            updatePaletteFromCover(coverUrl)
-        }
-
         val service = playerService
         if (service != null && service.isPlaying()) {
             val duration = service.duration().toInt()
@@ -283,7 +267,6 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     private fun loadLyrics(song: SongModel) {
-        val context = getApplication<Application>()
         if (!TextUtils.isEmpty(song.local_lyric)) {
             song.local_lyric?.let { lrc ->
                 lyrics = Lyrics.parse(lrc)
@@ -326,71 +309,6 @@ class NowPlayingViewModel @Inject constructor(
         _uiState.update { it.copy(currentLyric = "", nextLyric = "") }
     }
 
-    private fun updatePaletteFromCover(url: String) {
-        val cover = url.trim()
-        if (cover.isEmpty()) return
-
-        viewModelScope.launch(Dispatchers.IO) {
-            val context = getApplication<Application>()
-            val loader = ImageLoader(context)
-            val request = ImageRequest.Builder(context)
-                .data(cover)
-                .build()
-            val result = loader.execute(request)
-            val image = (result as? SuccessResult)?.image ?: return@launch
-            val bitmap = image.toBitmap().let { source ->
-                if (source.config == Bitmap.Config.HARDWARE) {
-                    source.copy(Bitmap.Config.ARGB_8888, false)
-                } else {
-                    source
-                }
-            }
-            val palette = Palette.from(bitmap).generate()
-            val fallback = _uiState.value.ambientColors.accentPrimary.toArgb()
-            val dominant = palette.getDominantColor(fallback)
-            val vibrant = palette.getVibrantColor(dominant)
-            val muted = palette.getMutedColor(dominant)
-            val darkVibrant = palette.getDarkVibrantColor(dominant)
-            val darkMuted = palette.getDarkMutedColor(dominant)
-            val baseDark = Color(0xFF0B1118)
-            val bgStart = blend(baseDark, Color(darkMuted), 0.35f)
-            val bgMid = blend(baseDark, Color(muted), 0.45f)
-            val bgEnd = blend(baseDark, Color(darkVibrant), 0.35f)
-            val accentA = Color(vibrant)
-            val accentB = Color(dominant)
-            val paletteList = listOf(
-                accentA,
-                Color(muted),
-                Color(vibrant),
-                Color(dominant),
-                Color(darkVibrant),
-            )
-
-            withContext(Dispatchers.Main) {
-                _uiState.update {
-                    it.copy(
-                        ambientColors = AmbientColors(
-                            backgroundStart = bgStart,
-                            backgroundMid = bgMid,
-                            backgroundEnd = bgEnd,
-                            accentPrimary = accentA,
-                            accentSecondary = accentB,
-                            particleColors = paletteList,
-                        ),
-                        paletteReady = true
-                    )
-                }
-            }
-        }
-    }
-
-    private fun blend(base: Color, overlay: Color, ratio: Float): Color {
-        val t = ratio.coerceIn(0f, 1f)
-        val r = base.red * (1f - t) + overlay.red * t
-        val g = base.green * (1f - t) + overlay.green * t
-        val b = base.blue * (1f - t) + overlay.blue * t
-        return Color(r, g, b, 1f)
-    }
 
     fun onAction(action: NowPlayingAction) {
         when (action) {

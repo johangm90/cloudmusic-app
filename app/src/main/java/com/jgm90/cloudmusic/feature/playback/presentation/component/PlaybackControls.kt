@@ -15,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -27,7 +26,7 @@ fun PlaybackControls(
     isPlaying: Boolean,
     shuffleEnabled: Boolean,
     repeatMode: PlaybackMode,
-    accentGradient: Brush,
+    accentColor: Color,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
@@ -75,7 +74,7 @@ fun PlaybackControls(
             onClick = onPlayPause,
             modifier = Modifier
                 .size(64.dp)
-                .background(accentGradient, CircleShape)
+                .background(accentColor, CircleShape)
         ) {
             Icon(
                 painter = painterResource(

@@ -21,9 +21,7 @@ data class NowPlayingUiState(
     val isLiked: Boolean = false,
     val beatLevel: Float = 0f,
     val visualizerBands: FloatArray = FloatArray(0),
-    val ambientColors: AmbientColors = AmbientColors.Default,
     val hasAudioPermission: Boolean = false,
-    val paletteReady: Boolean = false,
     val settings: AppSettings = AppSettings(),
 ) {
     override fun equals(other: Any?): Boolean {
@@ -47,9 +45,7 @@ data class NowPlayingUiState(
         if (isLiked != other.isLiked) return false
         if (beatLevel != other.beatLevel) return false
         if (!visualizerBands.contentEquals(other.visualizerBands)) return false
-        if (ambientColors != other.ambientColors) return false
         if (hasAudioPermission != other.hasAudioPermission) return false
-        if (paletteReady != other.paletteReady) return false
         if (settings != other.settings) return false
 
         return true
@@ -71,9 +67,7 @@ data class NowPlayingUiState(
         result = 31 * result + isLiked.hashCode()
         result = 31 * result + beatLevel.hashCode()
         result = 31 * result + visualizerBands.contentHashCode()
-        result = 31 * result + ambientColors.hashCode()
         result = 31 * result + hasAudioPermission.hashCode()
-        result = 31 * result + paletteReady.hashCode()
         result = 31 * result + settings.hashCode()
         return result
     }

@@ -21,8 +21,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -36,8 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jgm90.cloudmusic.core.ui.theme.AppBackground
-import com.jgm90.cloudmusic.feature.settings.domain.model.ParticleLevel
-import com.jgm90.cloudmusic.feature.settings.domain.model.ShaderQuality
 import com.jgm90.cloudmusic.feature.settings.domain.model.VisualizerStyle
 import com.jgm90.cloudmusic.feature.settings.presentation.viewmodel.SettingsViewModel
 
@@ -80,43 +76,12 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 SettingsSection(title = "Visual Effects") {
-                    SwitchSettingItem(
-                        title = "Ambient Mode",
-                        description = "Dynamic background colors from album art",
-                        checked = settings.ambientModeEnabled,
-                        onCheckedChange = { viewModel.setAmbientMode(it) }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     OptionSettingItem(
                         title = "Visualizer Style",
                         selectedOption = settings.visualizerStyle.displayName,
                         options = VisualizerStyle.entries.map { it.displayName },
                         onOptionSelected = { index ->
                             viewModel.setVisualizerStyle(VisualizerStyle.entries[index])
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OptionSettingItem(
-                        title = "Particles",
-                        selectedOption = settings.particleLevel.displayName,
-                        options = ParticleLevel.entries.map { it.displayName },
-                        onOptionSelected = { index ->
-                            viewModel.setParticleLevel(ParticleLevel.entries[index])
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OptionSettingItem(
-                        title = "Shader Quality",
-                        selectedOption = settings.shaderQuality.displayName,
-                        options = ShaderQuality.entries.map { it.displayName },
-                        onOptionSelected = { index ->
-                            viewModel.setShaderQuality(ShaderQuality.entries[index])
                         }
                     )
                 }
@@ -144,44 +109,6 @@ private fun SettingsSection(
         )
         Spacer(modifier = Modifier.height(12.dp))
         content()
-    }
-}
-
-@Composable
-private fun SwitchSettingItem(
-    title: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White,
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f),
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-            )
-        )
     }
 }
 
@@ -231,19 +158,4 @@ private val VisualizerStyle.displayName: String
     get() = when (this) {
         VisualizerStyle.WAVE_RING -> "Wave Ring"
         VisualizerStyle.NONE -> "None"
-    }
-
-private val ParticleLevel.displayName: String
-    get() = when (this) {
-        ParticleLevel.NONE -> "None"
-        ParticleLevel.LOW -> "Low"
-        ParticleLevel.MEDIUM -> "Medium"
-        ParticleLevel.HIGH -> "High"
-    }
-
-private val ShaderQuality.displayName: String
-    get() = when (this) {
-        ShaderQuality.LOW -> "Low"
-        ShaderQuality.MEDIUM -> "Medium"
-        ShaderQuality.HIGH -> "High"
     }

@@ -1,6 +1,5 @@
 package com.jgm90.cloudmusic.feature.settings.presentation.screen
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,12 +14,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ColorLens
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -29,7 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,7 +55,7 @@ fun SettingsScreen(
 
     AppBackground {
         Scaffold(
-            containerColor = Color.Transparent,
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 TopAppBar(
                     title = { Text(text = "Settings") },
@@ -75,14 +83,32 @@ fun SettingsScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                SettingsSection(title = "Visual Effects") {
-                    OptionSettingItem(
-                        title = "Visualizer Style",
-                        selectedOption = settings.visualizerStyle.displayName,
+                SettingsSection(
+                    title = "Playback",
+                    subtitle = "Visual adjustments for player screens",
+                    icon = Icons.Filled.Tune,
+                ) {
+                    SettingsLabel(
+                        title = "Visualizer",
+                        description = "Show or hide the visual ring around album art",
+                    )
+                    SegmentedSetting(
                         options = VisualizerStyle.entries.map { it.displayName },
+                        selectedIndex = VisualizerStyle.entries.indexOf(settings.visualizerStyle),
                         onOptionSelected = { index ->
                             viewModel.setVisualizerStyle(VisualizerStyle.entries[index])
                         }
+                    )
+                }
+
+                SettingsSection(
+                    title = "Appearance",
+                    subtitle = "System light/dark + dynamic cover colors",
+                    icon = Icons.Filled.ColorLens,
+                ) {
+                    SettingsInfoRow(
+                        title = "Dynamic theme",
+                        description = "The app follows system light/dark and adapts to the current cover art.",
                     )
                 }
             }
@@ -93,62 +119,95 @@ fun SettingsScreen(
 @Composable
 private fun SettingsSection(
     title: String,
+    subtitle: String,
+    icon: ImageVector,
     content: @Composable () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.2f))
-            .padding(16.dp)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
+        ListItem(
+            headlineContent = { Text(text = title) },
+            supportingContent = { Text(text = subtitle) },
+            leadingContent = {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
         )
-        Spacer(modifier = Modifier.height(12.dp))
-        content()
+        Divider(color = MaterialTheme.colorScheme.surfaceVariant)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            content()
+        }
     }
 }
 
 @Composable
-private fun OptionSettingItem(
+private fun SettingsLabel(
     title: String,
-    selectedOption: String,
-    options: List<String>,
-    onOptionSelected: (Int) -> Unit,
+    description: String,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            options.forEachIndexed { index, option ->
-                val isSelected = option == selectedOption
-                Text(
-                    text = option,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                            else Color.Transparent
-                        )
-                        .clickable { onOptionSelected(index) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun SettingsInfoRow(
+    title: String,
+    description: String,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SegmentedSetting(
+    options: List<String>,
+    selectedIndex: Int,
+    onOptionSelected: (Int) -> Unit,
+) {
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, label ->
+            SegmentedButton(
+                selected = index == selectedIndex,
+                onClick = { onOptionSelected(index) },
+                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+            ) {
+                Text(text = label)
             }
         }
     }

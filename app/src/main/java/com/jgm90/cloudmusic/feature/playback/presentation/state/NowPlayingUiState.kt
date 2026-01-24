@@ -24,6 +24,9 @@ data class NowPlayingUiState(
     val visualizerBands: FloatArray = FloatArray(0),
     val hasAudioPermission: Boolean = false,
     val settings: AppSettings = AppSettings(),
+    val errorMessage: String? = null,
+    val retryCount: Int = 0,
+    val maxRetries: Int = 3,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -49,6 +52,9 @@ data class NowPlayingUiState(
         if (!visualizerBands.contentEquals(other.visualizerBands)) return false
         if (hasAudioPermission != other.hasAudioPermission) return false
         if (settings != other.settings) return false
+        if (errorMessage != other.errorMessage) return false
+        if (retryCount != other.retryCount) return false
+        if (maxRetries != other.maxRetries) return false
 
         return true
     }
@@ -72,6 +78,9 @@ data class NowPlayingUiState(
         result = 31 * result + visualizerBands.contentHashCode()
         result = 31 * result + hasAudioPermission.hashCode()
         result = 31 * result + settings.hashCode()
+        result = 31 * result + (errorMessage?.hashCode() ?: 0)
+        result = 31 * result + retryCount
+        result = 31 * result + maxRetries
         return result
     }
 }

@@ -1,5 +1,7 @@
 package com.jgm90.cloudmusic.feature.playback.presentation.state
 
+import com.jgm90.cloudmusic.core.model.SongModel
+
 sealed interface NowPlayingAction {
     data object PlayPause : NowPlayingAction
     data object SkipToPrevious : NowPlayingAction
@@ -11,4 +13,9 @@ sealed interface NowPlayingAction {
     data class UpdateProgress(val positionMs: Int) : NowPlayingAction
     data object StartSeeking : NowPlayingAction
     data object StopSeeking : NowPlayingAction
+    data object DismissError : NowPlayingAction
+    data class AddToQueue(val song: SongModel) : NowPlayingAction
+    data class AddToQueueNext(val song: SongModel) : NowPlayingAction
+    data class RemoveFromQueue(val index: Int) : NowPlayingAction
+    data class SkipToQueueItem(val index: Int) : NowPlayingAction
 }

@@ -114,15 +114,16 @@ private const val AMBIENT_SHADER = """
 fun AmbientBackground(
     ambientColors: AmbientColors,
     beatLevel: Float,
+    animate: Boolean,
+    useShader: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val useShader = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    val canUseShader = useShader && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
     var bgSize by remember { mutableStateOf(IntSize(1, 1)) }
     var shaderTime by remember { mutableFloatStateOf(0f) }
 
     val transition = rememberInfiniteTransition(label = "ambientFlow")
-
     val flowPhase by transition.animateFloat(
         initialValue = 0f,
         targetValue = 2f * PI.toFloat(),
@@ -132,15 +133,16 @@ fun AmbientBackground(
         ),
         label = "flowPhase"
     )
+    val flowPhaseValue = if (animate) flowPhase else 0f
 
-    val backgroundGradient = remember(ambientColors, flowPhase) {
+    val backgroundGradient = remember(ambientColors, flowPhaseValue) {
         val offset1 = Offset(
-            0.3f + sin(flowPhase) * 0.2f,
-            0.2f + cos(flowPhase * 0.7f) * 0.15f
+            0.3f + sin(flowPhaseValue) * 0.2f,
+            0.2f + cos(flowPhaseValue * 0.7f) * 0.15f
         )
         val offset2 = Offset(
-            0.7f + cos(flowPhase * 0.5f) * 0.2f,
-            0.8f + sin(flowPhase * 0.8f) * 0.15f
+            0.7f + cos(flowPhaseValue * 0.5f) * 0.2f,
+            0.8f + sin(flowPhaseValue * 0.8f) * 0.15f
         )
 
         Brush.linearGradient(
@@ -152,7 +154,7 @@ fun AmbientBackground(
     }
 
     val shader = remember {
-        if (useShader && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (canUseShader && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             try {
                 RuntimeShader(AMBIENT_SHADER)
             } catch (e: Exception) {
@@ -165,8 +167,8 @@ fun AmbientBackground(
         shader?.let { ShaderBrush(it) }
     }
 
-    LaunchedEffect(useShader, shader) {
-        if (!useShader || shader == null) return@LaunchedEffect
+    LaunchedEffect(canUseShader, shader, animate) {
+        if (!canUseShader || shader == null || !animate) return@LaunchedEffect
         while (true) {
             withFrameNanos { frameTime ->
                 shaderTime = frameTime / 1_000_000_000f
@@ -174,12 +176,13 @@ fun AmbientBackground(
         }
     }
 
-    val shaderReady = useShader && bgSize.width > 1 && bgSize.height > 1 && shader != null
+    val shaderReady = canUseShader && bgSize.width > 1 && bgSize.height > 1 && shader != null
 
     if (shaderReady && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val beat = if (animate) beatLevel else 0f
         shader?.setFloatUniform("u_resolution", bgSize.width.toFloat(), bgSize.height.toFloat())
         shader?.setFloatUniform("u_time", shaderTime)
-        shader?.setFloatUniform("u_beat", beatLevel.coerceIn(0f, 1f))
+        shader?.setFloatUniform("u_beat", beat.coerceIn(0f, 1f))
         shader?.setFloatUniform(
             "u_color_start",
             ambientColors.backgroundStart.red,

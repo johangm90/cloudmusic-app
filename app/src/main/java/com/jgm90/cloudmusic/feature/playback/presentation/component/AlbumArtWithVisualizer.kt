@@ -38,16 +38,21 @@ fun AlbumArtWithVisualizer(
     showVisualizer: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "coverSpin")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 16000),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "coverSpinValue"
-    )
+    val rotation = if (isPlaying) {
+        val infiniteTransition = rememberInfiniteTransition(label = "coverSpin")
+        val animatedRotation by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 16000),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "coverSpinValue"
+        )
+        animatedRotation
+    } else {
+        0f
+    }
 
     val pulse by animateFloatAsState(
         targetValue = 1f + beatLevel.coerceIn(0f, 1f) * 0.18f,
@@ -89,7 +94,7 @@ fun AlbumArtWithVisualizer(
                 .clip(CircleShape)
                 .background(accentGradient)
                 .graphicsLayer {
-                    rotationZ = if (isPlaying) rotation else 0f
+                    rotationZ = rotation
                     scaleX = pulse
                     scaleY = pulse
                     alpha = 0.75f + (beatLevel.coerceIn(0f, 1f) * 0.2f)
@@ -110,7 +115,7 @@ fun AlbumArtWithVisualizer(
                 )
                 .shadow(24.dp, CircleShape)
                 .graphicsLayer {
-                    rotationZ = if (isPlaying) rotation else 0f
+                    rotationZ = rotation
                 },
         )
     }

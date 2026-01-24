@@ -1,5 +1,6 @@
 package com.jgm90.cloudmusic.feature.settings.data
 
+import android.app.ActivityManager
 import android.content.Context
 import android.preference.PreferenceManager
 import com.jgm90.cloudmusic.feature.settings.domain.model.AppSettings
@@ -23,17 +24,34 @@ class SettingsRepository @Inject constructor(
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
     private fun loadSettings(): AppSettings {
+        val isLowRam = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
+            .isLowRamDevice
+        val defaults = if (isLowRam) {
+            AppSettings(
+                ambientModeEnabled = false,
+                visualizerStyle = VisualizerStyle.NONE,
+                particleLevel = ParticleLevel.NONE,
+                shaderQuality = ShaderQuality.LOW,
+            )
+        } else {
+            AppSettings(
+                ambientModeEnabled = true,
+                visualizerStyle = VisualizerStyle.WAVE_RING,
+                particleLevel = ParticleLevel.MEDIUM,
+                shaderQuality = ShaderQuality.MEDIUM,
+            )
+        }
         return AppSettings(
-            ambientModeEnabled = prefs.getBoolean(KEY_AMBIENT_MODE, true),
+            ambientModeEnabled = prefs.getBoolean(KEY_AMBIENT_MODE, defaults.ambientModeEnabled),
             visualizerStyle = VisualizerStyle.entries.getOrElse(
-                prefs.getInt(KEY_VISUALIZER_STYLE, 0)
-            ) { VisualizerStyle.WAVE_RING },
+                prefs.getInt(KEY_VISUALIZER_STYLE, defaults.visualizerStyle.ordinal)
+            ) { defaults.visualizerStyle },
             particleLevel = ParticleLevel.entries.getOrElse(
-                prefs.getInt(KEY_PARTICLE_LEVEL, 2)
-            ) { ParticleLevel.MEDIUM },
+                prefs.getInt(KEY_PARTICLE_LEVEL, defaults.particleLevel.ordinal)
+            ) { defaults.particleLevel },
             shaderQuality = ShaderQuality.entries.getOrElse(
-                prefs.getInt(KEY_SHADER_QUALITY, 1)
-            ) { ShaderQuality.MEDIUM },
+                prefs.getInt(KEY_SHADER_QUALITY, defaults.shaderQuality.ordinal)
+            ) { defaults.shaderQuality },
         )
     }
 

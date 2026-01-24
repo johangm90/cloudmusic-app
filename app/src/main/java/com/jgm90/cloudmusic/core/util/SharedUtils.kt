@@ -3,10 +3,8 @@ package com.jgm90.cloudmusic.core.util
 import android.app.ActivityManager
 import android.content.Context
 import android.preference.PreferenceManager
-import android.view.View
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
-import com.jgm90.cloudmusic.core.ui.widget.VulgryMessageView
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -81,14 +79,6 @@ object SharedUtils {
     fun getShuffle(context: Context?): Boolean {
         val preferences = PreferenceManager.getDefaultSharedPreferences(context)
         return preferences.getBoolean("SHUFFLE", false)
-    }
-
-    @JvmStatic
-    fun showMessage(messageView: VulgryMessageView?, pic: Int, msg: Int) {
-        if (messageView == null) return
-        messageView.setDrawable(pic)
-        messageView.setText(msg)
-        messageView.visibility = View.VISIBLE
     }
 
     @JvmStatic

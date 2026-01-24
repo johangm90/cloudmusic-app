@@ -8,10 +8,9 @@ import android.os.Bundle
 import android.os.IBinder
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.core.app.ActivityCompat
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.jgm90.cloudmusic.core.app.BaseActivity
-import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.feature.playback.presentation.screen.NowPlayingScreen
@@ -23,6 +22,10 @@ import dagger.hilt.android.AndroidEntryPoint
 class NowPlayingActivity : BaseActivity() {
 
     private val viewModel: NowPlayingViewModel by viewModels()
+    private val audioPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            viewModel.updateAudioPermission(granted)
+        }
 
     private val serviceConnection: ServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
@@ -41,23 +44,21 @@ class NowPlayingActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        viewModel.updateAudioPermission(hasAudioPermission())
-        requestAudioPermission()
+        val hasPermission = hasAudioPermission()
+        viewModel.updateAudioPermission(hasPermission)
+        requestAudioPermission(hasPermission)
 
         if (SharedUtils.isMyServiceRunning(this, MediaPlayerService::class.java)) {
             val playerIntent = Intent(this, MediaPlayerService::class.java)
             bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE)
         }
 
-        if (audioList.isEmpty() && MediaPlayerService.audioList.isNotEmpty()) {
-            audioList = MediaPlayerService.audioList
-        }
+        val audioList = MediaPlayerService.audioList
 
         val extras = intent.extras
         if (extras != null) {
             val songIndex = extras.getInt("SONG_INDEX", MediaPlayerService.audioIndex)
             playAudio()
-            MediaPlayerService.audioList = audioList
             MediaPlayerService.audioIndex = songIndex
             viewModel.loadSongInfo(songIndex, audioList)
         } else {
@@ -75,10 +76,10 @@ class NowPlayingActivity : BaseActivity() {
         }
     }
 
-    private fun requestAudioPermission() {
+    private fun requestAudioPermission(hasPermission: Boolean) {
         val permission = android.Manifest.permission.RECORD_AUDIO
-        if (!hasAudioPermission()) {
-            ActivityCompat.requestPermissions(this, arrayOf(permission), 1001)
+        if (!hasPermission) {
+            audioPermissionLauncher.launch(permission)
         }
     }
 
@@ -87,17 +88,6 @@ class NowPlayingActivity : BaseActivity() {
             this,
             android.Manifest.permission.RECORD_AUDIO
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray,
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 1001) {
-            viewModel.updateAudioPermission(hasAudioPermission())
-        }
     }
 
     override fun onPause() {
@@ -151,8 +141,5 @@ class NowPlayingActivity : BaseActivity() {
 
     companion object {
         const val Broadcast_PLAY_NEW_AUDIO = "com.jgm90.cloudmusic.PlayNewAudio"
-
-        @JvmField
-        var audioList: MutableList<SongModel> = mutableListOf()
     }
 }

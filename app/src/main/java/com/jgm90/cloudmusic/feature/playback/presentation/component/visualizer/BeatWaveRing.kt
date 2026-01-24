@@ -85,6 +85,12 @@ fun BeatWaveRing(
         )
     }
 
+    val shouldAnimate = isPlaying
+    val phase1Value = if (shouldAnimate) phase1 else 0f
+    val phase2Value = if (shouldAnimate) phase2 else 0f
+    val phase3Value = if (shouldAnimate) phase3 else 0f
+    val breatheValue = if (shouldAnimate) breathe else 1f
+
     Canvas(modifier = modifier) {
         val center = Offset(size.width / 2f, size.height / 2f)
         val baseRadius = size.minDimension * 0.38f
@@ -93,7 +99,7 @@ fun BeatWaveRing(
 
         // Layer 1: Outer aurora glow
         val outerPath = Path()
-        val outerRadius = baseRadius * 1.15f * breathe
+        val outerRadius = baseRadius * 1.15f * breatheValue
         val outerAmp = size.minDimension * (0.02f + effectiveBeat * 0.06f)
 
         for (i in 0..POINTS_PER_WAVE) {
@@ -103,9 +109,9 @@ fun BeatWaveRing(
             } else i % 8
             val bandLevel = if (bands.isNotEmpty()) bands[bandIndex].coerceIn(0f, 1f) else 0.5f
 
-            val wave1 = sin(angle * 3f + phase1) * outerAmp
-            val wave2 = sin(angle * 5f + phase2 * 1.3f) * outerAmp * 0.6f
-            val wave3 = cos(angle * 2f + phase3) * outerAmp * 0.4f
+            val wave1 = sin(angle * 3f + phase1Value) * outerAmp
+            val wave2 = sin(angle * 5f + phase2Value * 1.3f) * outerAmp * 0.6f
+            val wave3 = cos(angle * 2f + phase3Value) * outerAmp * 0.4f
             val beatWave = sin(angle * 8f) * outerAmp * bandLevel * 1.5f
 
             val r = outerRadius + wave1 + wave2 + wave3 + beatWave
@@ -137,7 +143,7 @@ fun BeatWaveRing(
 
         // Layer 2: Middle flowing wave
         val middlePath = Path()
-        val middleRadius = baseRadius * 1.05f * breathe
+        val middleRadius = baseRadius * 1.05f * breatheValue
         val middleAmp = size.minDimension * (0.015f + effectiveBeat * 0.045f)
 
         for (i in 0..POINTS_PER_WAVE) {
@@ -147,9 +153,9 @@ fun BeatWaveRing(
             } else i % 8
             val bandLevel = if (bands.isNotEmpty()) bands[bandIndex].coerceIn(0f, 1f) else 0.5f
 
-            val wave1 = sin(angle * 4f - phase1 * 0.8f) * middleAmp
-            val wave2 = cos(angle * 6f + phase2) * middleAmp * 0.7f
-            val beatWave = sin(angle * 12f + phase3) * middleAmp * bandLevel * 2f
+            val wave1 = sin(angle * 4f - phase1Value * 0.8f) * middleAmp
+            val wave2 = cos(angle * 6f + phase2Value) * middleAmp * 0.7f
+            val beatWave = sin(angle * 12f + phase3Value) * middleAmp * bandLevel * 2f
 
             val r = middleRadius + wave1 + wave2 + beatWave
             val x = center.x + cos(angle) * r
@@ -160,7 +166,7 @@ fun BeatWaveRing(
         middlePath.close()
 
         // Rotating middle layer for dynamic effect
-        rotate(degrees = phase1 * 5f, pivot = center) {
+        rotate(degrees = phase1Value * 5f, pivot = center) {
             drawPath(
                 path = middlePath,
                 brush = Brush.sweepGradient(
@@ -188,7 +194,7 @@ fun BeatWaveRing(
             } else i % 8
             val bandLevel = if (bands.isNotEmpty()) bands[bandIndex].coerceIn(0f, 1f) else 0.5f
 
-            val wave = sin(angle * 16f + phase1 * 2f) * innerAmp * (0.5f + bandLevel)
+            val wave = sin(angle * 16f + phase1Value * 2f) * innerAmp * (0.5f + bandLevel)
 
             val r = innerRadius + wave
             val x = center.x + cos(angle) * r
@@ -237,7 +243,7 @@ fun BeatWaveRing(
             for (i in 0 until sparkleCount) {
                 val peakIndex = (i * bands.size / sparkleCount).coerceIn(0, bands.size - 1)
                 if (bands[peakIndex] > 0.6f) {
-                    val angle = (i.toFloat() / sparkleCount) * 2f * PI.toFloat() + phase1
+                    val angle = (i.toFloat() / sparkleCount) * 2f * PI.toFloat() + phase1Value
                     val sparkleRadius = baseRadius * 1.1f
                     val x = center.x + cos(angle) * sparkleRadius
                     val y = center.y + sin(angle) * sparkleRadius

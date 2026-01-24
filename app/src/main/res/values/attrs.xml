@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <declare-styleable name="VulgryMessageView">
-        <attr name="imageDrawable" format="reference" localization="suggested" />
-        <attr name="messageText" format="reference|string" localization="suggested" />
-    </declare-styleable>
-</resources>

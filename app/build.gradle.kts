@@ -21,7 +21,8 @@ android {
     }
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -39,7 +40,6 @@ android {
     }
 
     buildFeatures {
-        viewBinding = true
         compose = true
     }
 
@@ -53,16 +53,11 @@ android {
 dependencies {
     implementation(project(":designsystem"))
     implementation(libs.androidx.ui.text.google.fonts)
-    implementation(libs.androidx.fragment.ktx)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.cardview)
-    implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.palette.ktx)
     implementation(libs.androidx.media)
-    implementation(libs.androidx.dynamicanimation)
+    implementation(libs.material)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.hilt.android)
-    implementation(libs.androidx.compose.material3)
     kapt(libs.hilt.compiler)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
@@ -70,7 +65,6 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.logging.interceptor)
-    implementation(libs.dexter)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

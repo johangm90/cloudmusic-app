@@ -45,6 +45,7 @@ import com.jgm90.cloudmusic.feature.playback.presentation.state.AmbientColors
 import com.jgm90.cloudmusic.feature.playback.presentation.state.NowPlayingAction
 import com.jgm90.cloudmusic.feature.playback.presentation.viewmodel.NowPlayingViewModel
 import com.jgm90.cloudmusic.feature.settings.domain.model.ParticleLevel
+import com.jgm90.cloudmusic.feature.settings.domain.model.ShaderQuality
 import com.jgm90.cloudmusic.feature.settings.domain.model.VisualizerStyle
 
 @Composable
@@ -55,19 +56,6 @@ fun NowPlayingScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val settings = uiState.settings
 
-    val infiniteTransition = rememberInfiniteTransition(label = "simulatedBeat")
-    val simulatedBeat by infiniteTransition.animateFloat(
-        initialValue = 0.08f,
-        targetValue = 0.32f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 900),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "simulatedBeat"
-    )
-
-    val effectiveBeat = if (uiState.hasAudioPermission) uiState.beatLevel else simulatedBeat
-    val playingBeat = if (uiState.isPlaying) effectiveBeat else 0f
     val sliderMax = if (uiState.durationMs > 0) uiState.durationMs else 1
 
     // Use ambient colors based on setting
@@ -103,16 +91,49 @@ fun NowPlayingScreen(
         ParticleLevel.HIGH -> 1.5f
     }
 
+    val shouldSimulateBeat = !uiState.hasAudioPermission &&
+        (settings.ambientModeEnabled || showParticles || showVisualizer)
+    val simulatedBeat = if (shouldSimulateBeat) {
+        val infiniteTransition = rememberInfiniteTransition(label = "simulatedBeat")
+        val beat by infiniteTransition.animateFloat(
+            initialValue = 0.08f,
+            targetValue = 0.32f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 900),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "simulatedBeat"
+        )
+        beat
+    } else {
+        0f
+    }
+
+    val effectiveBeat = if (uiState.hasAudioPermission) uiState.beatLevel else simulatedBeat
+    val playingBeat = if (uiState.isPlaying) effectiveBeat else 0f
+    val animateBackground = uiState.isPlaying && (settings.ambientModeEnabled || showParticles || showVisualizer)
+    val allowShader = settings.shaderQuality == ShaderQuality.HIGH
+
     AmbientBackground(
         ambientColors = ambientColors,
         beatLevel = if (settings.ambientModeEnabled) playingBeat else 0f,
+        animate = animateBackground,
+        useShader = allowShader,
     ) {
         // Particles - only show if enabled
         if (showParticles) {
+            val particleCount = when (settings.particleLevel) {
+                ParticleLevel.NONE -> 0
+                ParticleLevel.LOW -> 8
+                ParticleLevel.MEDIUM -> 14
+                ParticleLevel.HIGH -> 20
+            }
+
             ParticleSystem(
                 modifier = Modifier.fillMaxSize(),
                 intensity = playingBeat * particleIntensityMultiplier,
                 enabled = uiState.isPlaying,
+                particleCount = particleCount,
                 colors = ambientColors.particleColors,
             )
         }

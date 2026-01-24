@@ -8,12 +8,12 @@ import android.media.AudioManager
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
 import androidx.core.view.WindowInsetsControllerCompat
 import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
 import androidx.compose.runtime.mutableStateOf
 
-open class BaseActivity : AppCompatActivity(), ServiceConnection {
+open class BaseActivity : ComponentActivity(), ServiceConnection {
     protected var player_service: MediaPlayerService? = null
     protected var serviceBound = false
 

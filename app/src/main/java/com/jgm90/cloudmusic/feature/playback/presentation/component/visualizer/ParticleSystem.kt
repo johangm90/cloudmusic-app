@@ -19,7 +19,6 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-private const val PARTICLE_COUNT = 20
 private const val ORBIT_COUNT = 3
 
 @Immutable
@@ -39,10 +38,11 @@ fun ParticleSystem(
     modifier: Modifier,
     intensity: Float,
     enabled: Boolean,
+    particleCount: Int,
     colors: List<Color>,
 ) {
-    val particles = remember {
-        List(PARTICLE_COUNT) { index ->
+    val particles = remember(particleCount) {
+        List(particleCount) { index ->
             val orbit = index % ORBIT_COUNT
             FloatingParticle(
                 orbitRadius = 0.35f + orbit * 0.15f + Random.nextFloat() * 0.08f,
@@ -100,18 +100,21 @@ fun ParticleSystem(
     )
 
     Canvas(modifier = modifier) {
-        if (!enabled) return@Canvas
+        if (!enabled || intensity <= 0f) return@Canvas
 
         val center = Offset(size.width / 2f, size.height / 2f)
         val base = size.minDimension
         val effectiveIntensity = intensity.coerceIn(0f, 1f)
+        val orbitTime = time
+        val pulse = pulseTime
+        val drift = driftY
 
         // Draw connection lines between nearby particles (subtle web effect)
         if (effectiveIntensity > 0.2f) {
             val positions = particles.map { p ->
-                val angle = p.startAngle + time * p.orbitSpeed
+                val angle = p.startAngle + orbitTime * p.orbitSpeed
                 val r = base * p.orbitRadius * (1f + effectiveIntensity * 0.15f)
-                val yOffset = base * (p.verticalOffset + driftY)
+                val yOffset = base * (p.verticalOffset + drift)
                 Offset(
                     center.x + cos(angle) * r,
                     center.y + sin(angle) * r + yOffset
@@ -136,18 +139,18 @@ fun ParticleSystem(
 
         // Draw particles with glow
         for (p in particles) {
-            val angle = p.startAngle + time * p.orbitSpeed
+            val angle = p.startAngle + orbitTime * p.orbitSpeed
             val r = base * p.orbitRadius * (1f + effectiveIntensity * 0.15f)
-            val yOffset = base * (p.verticalOffset + driftY)
+            val yOffset = base * (p.verticalOffset + drift)
             val x = center.x + cos(angle) * r
             val y = center.y + sin(angle) * r + yOffset
 
-            val pulse = sin(pulseTime * p.pulseSpeed + p.pulsePhase)
-            val sizeMult = 1f + pulse * 0.3f + effectiveIntensity * 0.5f
+            val pulseWave = sin(pulse * p.pulseSpeed + p.pulsePhase)
+            val sizeMult = 1f + pulseWave * 0.3f + effectiveIntensity * 0.5f
             val particleSize = base * p.size * sizeMult
 
             val baseAlpha = 0.3f + effectiveIntensity * 0.5f
-            val alpha = baseAlpha * (0.7f + pulse * 0.3f)
+            val alpha = baseAlpha * (0.7f + pulseWave * 0.3f)
 
             val particleColor = palette[p.colorIndex % palette.size]
 
@@ -188,7 +191,7 @@ fun ParticleSystem(
             for (i in 0 until starCount) {
                 val starAngle = (i.toFloat() / starCount) * 2f * PI.toFloat()
                 val starRadius = base * (0.55f + (i % 3) * 0.05f)
-                val twinkle = sin(pulseTime * 2f + i.toFloat())
+                val twinkle = sin(pulse * 2f + i.toFloat())
                 val starAlpha = (0.1f + twinkle * 0.1f) * effectiveIntensity
 
                 if (starAlpha > 0.05f) {

@@ -264,8 +264,8 @@ val unspecified_scheme =
 
 @Composable
 fun CloudMusicTheme(
-    darkTheme: Boolean = true,
-    dynamicColor: Boolean = false,
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colorScheme =

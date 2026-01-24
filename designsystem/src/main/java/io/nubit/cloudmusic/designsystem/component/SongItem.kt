@@ -1,6 +1,5 @@
 package io.nubit.cloudmusic.designsystem.component
 
-import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,15 +61,11 @@ fun SongItem(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
         ) {
-            Log.d("COVER", "Image URL: $imageUrl")
             AsyncImage(
                 model = imageUrl,
                 placeholder = painterResource(R.drawable.default_cover),
                 fallback = painterResource(R.drawable.default_cover),
                 error = painterResource(R.drawable.default_cover),
-                onError = {
-                    Log.e("COVER", "Error loading image: ${it.result.throwable.message}")
-                },
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

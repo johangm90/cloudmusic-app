@@ -120,23 +120,47 @@ class NowPlayingViewModel @Inject constructor(
     fun startProgressUpdates() {
         progressJob?.cancel()
         progressJob = viewModelScope.launch {
+            var lastPosition = -1
+            var lastDuration = -1
+            var lastElapsedSec = -1
+            var lastDurationSec = -1
             while (isActive) {
                 val service = playerService
                 if (service != null && service.isPlaying()) {
                     val duration = service.duration().toInt()
                     val position = service.getPosition().toInt()
+                    val elapsedSec = (position / 1000L).toInt()
+                    val durationSec = (duration / 1000L).toInt()
                     val context = getApplication<Application>()
-                    _uiState.update {
-                        it.copy(
-                            durationMs = duration,
-                            durationText = SharedUtils.makeShortTimeString(context, duration / 1000L),
-                            progressMs = if (!userSeeking) position else it.progressMs,
-                            elapsedText = SharedUtils.makeShortTimeString(context, position / 1000L),
-                            isPlaying = true
-                        )
+                    val elapsedText = if (elapsedSec != lastElapsedSec) {
+                        SharedUtils.makeShortTimeString(context, elapsedSec.toLong())
+                    } else {
+                        null
                     }
+                    val durationText = if (durationSec != lastDurationSec) {
+                        SharedUtils.makeShortTimeString(context, durationSec.toLong())
+                    } else {
+                        null
+                    }
+                    if (position != lastPosition || duration != lastDuration || !_uiState.value.isPlaying) {
+                        _uiState.update {
+                            it.copy(
+                                durationMs = duration,
+                                durationText = durationText ?: it.durationText,
+                                progressMs = if (!userSeeking) position else it.progressMs,
+                                elapsedText = elapsedText ?: it.elapsedText,
+                                isPlaying = true
+                            )
+                        }
+                    }
+                    lastPosition = position
+                    lastDuration = duration
+                    lastElapsedSec = elapsedSec
+                    lastDurationSec = durationSec
+                } else if (_uiState.value.isPlaying) {
+                    _uiState.update { it.copy(isPlaying = false) }
                 }
-                delay(50)
+                delay(200)
             }
         }
     }
@@ -152,8 +176,9 @@ class NowPlayingViewModel @Inject constructor(
             while (isActive) {
                 val service = playerService
                 val lyricsList = lyrics
-                if (service != null && service.isPlaying() && !lyricsList.isNullOrEmpty()) {
-                    val position = service.getPosition()
+                val isPlaying = service?.isPlaying() == true
+                if (isPlaying && !lyricsList.isNullOrEmpty()) {
+                    val position = service?.getPosition() ?: 0L
                     if (position > 0) {
                         val index = findLyricIndex(lyricsList, position)
                         if (index >= 0 && index != currentLineIndex) {
@@ -173,7 +198,7 @@ class NowPlayingViewModel @Inject constructor(
                         }
                     }
                 }
-                delay(50)
+                delay(if (isPlaying) 200 else 500)
             }
         }
     }

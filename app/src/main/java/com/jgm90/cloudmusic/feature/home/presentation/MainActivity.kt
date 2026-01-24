@@ -49,6 +49,7 @@ import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
 import com.jgm90.cloudmusic.feature.playback.presentation.PlaybackControlsBar
+import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
 import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
 import com.jgm90.cloudmusic.feature.playlist.presentation.LibraryScreen
 import com.jgm90.cloudmusic.feature.playlist.presentation.LikedSongsScreen
@@ -65,7 +66,7 @@ class MainActivity : BaseActivity() {
     private var eventJobs: List<Job> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(R.style.AppTheme_NoActionBar)
+        setTheme(R.style.AppTheme)
         super.onCreate(savedInstanceState)
         packageInfo = runCatching {
             packageManager.getPackageInfo(packageName, 0)
@@ -113,7 +114,7 @@ class MainActivity : BaseActivity() {
     private fun openNowPlaying(index: Int, list: List<com.jgm90.cloudmusic.core.model.SongModel>) {
         val intent = Intent(this, NowPlayingActivity::class.java)
         intent.putExtra("SONG_INDEX", index)
-        NowPlayingActivity.audioList = list.toMutableList()
+        MediaPlayerService.audioList = list.toMutableList()
         startActivity(intent)
     }
 

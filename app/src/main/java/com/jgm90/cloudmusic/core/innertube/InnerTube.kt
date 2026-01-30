@@ -1,11 +1,28 @@
 package com.jgm90.cloudmusic.core.innertube
 
 import android.util.Log
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.jgm90.cloudmusic.core.innertube.models.*
+import com.jgm90.cloudmusic.core.innertube.models.BrowseResponse
+import com.jgm90.cloudmusic.core.innertube.models.ClientContext
+import com.jgm90.cloudmusic.core.innertube.models.InnerTubeContext
+import com.jgm90.cloudmusic.core.innertube.models.InnerTubeRequest
+import com.jgm90.cloudmusic.core.innertube.models.MusicQueueResponse
+import com.jgm90.cloudmusic.core.innertube.models.MusicSearchSuggestionsResponse
+import com.jgm90.cloudmusic.core.innertube.models.NextResponse
+import com.jgm90.cloudmusic.core.innertube.models.PlaybackContext
+import com.jgm90.cloudmusic.core.innertube.models.PlayerResponse
+import com.jgm90.cloudmusic.core.innertube.models.SearchResponse
+import com.jgm90.cloudmusic.core.innertube.models.ThirdPartyContext
+import com.jgm90.cloudmusic.core.innertube.models.UserContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -21,9 +38,11 @@ class InnerTube(
         private const val TAG = "InnerTube"
     }
 
-    private val gson: Gson = GsonBuilder()
-        .setLenient()
-        .create()
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        explicitNulls = false
+    }
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
@@ -71,21 +90,20 @@ class InnerTube(
 
     private suspend fun <T> executeRequest(
         endpoint: String,
-        body: Any,
-        responseClass: Class<T>,
+        bodyJson: String,
+        responseSerializer: KSerializer<T>,
         clientType: InnerTubeClient,
         includeLogin: Boolean = false,
         continuation: String? = null
     ): Result<T> = withContext(Dispatchers.IO) {
         try {
             val url = buildUrl(endpoint, clientType)
-            val jsonBody = gson.toJson(body)
 
-            Log.d(TAG, "Request to $endpoint with ${clientType.clientName}: $jsonBody")
+            Log.d(TAG, "Request to $endpoint with ${clientType.clientName}: $bodyJson")
 
             val requestBuilder = Request.Builder()
                 .url(url)
-                .post(jsonBody.toRequestBody(jsonMediaType))
+                .post(bodyJson.toRequestBody(jsonMediaType))
 
             clientType.buildHeaders().forEach { (key, value) ->
                 requestBuilder.addHeader(key, value)
@@ -96,8 +114,12 @@ class InnerTube(
                     val sapisid = cookieMap["SAPISID"]
                     if (!sapisid.isNullOrBlank()) {
                         val currentTime = System.currentTimeMillis() / 1000
-                        val sapisidHash = sha1("$currentTime $sapisid ${clientType.referer.trimEnd('/')}")
-                        requestBuilder.addHeader("Authorization", "SAPISIDHASH ${currentTime}_${sapisidHash}")
+                        val sapisidHash =
+                            sha1("$currentTime $sapisid ${clientType.referer.trimEnd('/')}")
+                        requestBuilder.addHeader(
+                            "Authorization",
+                            "SAPISIDHASH ${currentTime}_${sapisidHash}"
+                        )
                     }
                 }
             }
@@ -120,7 +142,7 @@ class InnerTube(
 
             Log.d(TAG, "Response from $endpoint: ${responseBody.take(1000)}...")
 
-            val result = gson.fromJson(responseBody, responseClass)
+            val result = json.decodeFromString(responseSerializer, responseBody)
             Result.success(result)
         } catch (e: Exception) {
             Log.e(TAG, "Request failed", e)
@@ -143,10 +165,11 @@ class InnerTube(
             params = params,
             continuation = continuation
         )
+        val bodyJson = json.encodeToString(InnerTubeRequest.serializer(), body)
         return executeRequest(
             InnerTubeConfig.Endpoints.SEARCH,
-            body,
-            SearchResponse::class.java,
+            bodyJson,
+            SearchResponse.serializer(),
             InnerTubeClient.WEB_REMIX,
             includeLogin = useLoginForBrowse,
             continuation = continuation
@@ -167,10 +190,11 @@ class InnerTube(
             params = params,
             continuation = continuation
         )
+        val bodyJson = json.encodeToString(InnerTubeRequest.serializer(), body)
         return executeRequest(
             InnerTubeConfig.Endpoints.SEARCH,
-            body,
-            SearchResponse::class.java,
+            bodyJson,
+            SearchResponse.serializer(),
             InnerTubeClient.WEB,
             continuation = continuation
         )
@@ -198,10 +222,11 @@ class InnerTube(
                 PlaybackContext(PlaybackContext.ContentPlaybackContext(signatureTimestamp))
             } else null
         )
+        val bodyJson = json.encodeToString(InnerTubeRequest.serializer(), body)
         return executeRequest(
             InnerTubeConfig.Endpoints.PLAYER,
-            body,
-            PlayerResponse::class.java,
+            bodyJson,
+            PlayerResponse.serializer(),
             clientType,
             includeLogin = true
         )
@@ -226,10 +251,11 @@ class InnerTube(
             params = params,
             continuation = continuation
         )
+        val bodyJson = json.encodeToString(InnerTubeRequest.serializer(), body)
         return executeRequest(
             InnerTubeConfig.Endpoints.BROWSE,
-            body,
-            BrowseResponse::class.java,
+            bodyJson,
+            BrowseResponse.serializer(),
             clientType,
             includeLogin = includeLogin || useLoginForBrowse,
             continuation = continuation
@@ -257,10 +283,11 @@ class InnerTube(
             params = params,
             continuation = continuation
         )
+        val bodyJson = json.encodeToString(InnerTubeRequest.serializer(), body)
         return executeRequest(
             InnerTubeConfig.Endpoints.NEXT,
-            body,
-            NextResponse::class.java,
+            bodyJson,
+            NextResponse.serializer(),
             clientType,
             includeLogin = true,
             continuation = continuation
@@ -271,14 +298,20 @@ class InnerTube(
      * Get music search suggestions (YouTube Music)
      */
     suspend fun musicSearchSuggestions(query: String): Result<MusicSearchSuggestionsResponse> {
-        val body = mapOf(
-            "context" to buildContext(InnerTubeClient.WEB_REMIX),
-            "input" to query
-        )
+        val body = buildJsonObject {
+            put(
+                "context",
+                json.encodeToJsonElement(
+                    InnerTubeContext.serializer(),
+                    buildContext(InnerTubeClient.WEB_REMIX)
+                )
+            )
+            put("input", JsonPrimitive(query))
+        }
         return executeRequest(
             InnerTubeConfig.Endpoints.MUSIC_GET_SEARCH_SUGGESTIONS,
-            body,
-            MusicSearchSuggestionsResponse::class.java,
+            json.encodeToString(JsonObject.serializer(), body),
+            MusicSearchSuggestionsResponse.serializer(),
             InnerTubeClient.WEB_REMIX
         )
     }
@@ -290,15 +323,23 @@ class InnerTube(
         videoIds: List<String>,
         playlistId: String? = null
     ): Result<MusicQueueResponse> {
-        val body = mapOf(
-            "context" to buildContext(InnerTubeClient.WEB_REMIX),
-            "videoIds" to videoIds,
-            "playlistId" to playlistId
-        )
+        val body = buildJsonObject {
+            put(
+                "context",
+                json.encodeToJsonElement(
+                    InnerTubeContext.serializer(),
+                    buildContext(InnerTubeClient.WEB_REMIX)
+                )
+            )
+            put("videoIds", json.encodeToJsonElement(ListSerializer(String.serializer()), videoIds))
+            if (playlistId != null) {
+                put("playlistId", JsonPrimitive(playlistId))
+            }
+        }
         return executeRequest(
             InnerTubeConfig.Endpoints.MUSIC_GET_QUEUE,
-            body,
-            MusicQueueResponse::class.java,
+            json.encodeToString(JsonObject.serializer(), body),
+            MusicQueueResponse.serializer(),
             InnerTubeClient.WEB_REMIX
         )
     }
@@ -306,15 +347,18 @@ class InnerTube(
     suspend fun getTranscript(
         videoId: String,
         clientType: InnerTubeClient = InnerTubeClient.WEB_REMIX
-    ): Result<Any> {
-        val body = mapOf(
-            "context" to buildContext(clientType),
-            "params" to ("\n${11.toChar()}$videoId").encodeBase64()
-        )
+    ): Result<JsonElement> {
+        val body = buildJsonObject {
+            put(
+                "context",
+                json.encodeToJsonElement(InnerTubeContext.serializer(), buildContext(clientType))
+            )
+            put("params", JsonPrimitive(("\n${11.toChar()}$videoId").encodeBase64()))
+        }
         return executeRequest(
             InnerTubeConfig.Endpoints.GET_TRANSCRIPT,
-            body,
-            Any::class.java,
+            json.encodeToString(JsonObject.serializer(), body),
+            JsonElement.serializer(),
             clientType
         )
     }
@@ -342,7 +386,10 @@ class InnerTube(
 
             if (playlistId != null) {
                 urlBuilder.addQueryParameter("list", playlistId)
-                urlBuilder.addQueryParameter("referrer", "https://music.youtube.com/playlist?list=$playlistId")
+                urlBuilder.addQueryParameter(
+                    "referrer",
+                    "https://music.youtube.com/playlist?list=$playlistId"
+                )
             }
 
             val request = requestBuilder.url(urlBuilder.build()).build()

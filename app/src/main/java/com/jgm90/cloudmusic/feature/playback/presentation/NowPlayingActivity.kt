@@ -97,14 +97,10 @@ class NowPlayingActivity : BaseActivity() {
 
     override fun onPause() {
         super.onPause()
-        viewModel.stopProgressUpdates()
     }
 
     override fun onResume() {
         super.onResume()
-        if (player_service?.isPlaying() == true) {
-            viewModel.startProgressUpdates()
-        }
     }
 
     override fun onStart() {

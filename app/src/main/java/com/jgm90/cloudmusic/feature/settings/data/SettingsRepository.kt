@@ -20,7 +20,7 @@ import javax.inject.Singleton
 
 @Singleton
 class SettingsRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     private val dataStore = context.appDataStore
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

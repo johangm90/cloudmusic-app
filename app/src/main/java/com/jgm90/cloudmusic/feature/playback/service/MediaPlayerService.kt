@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+
 package com.jgm90.cloudmusic.feature.playback.service
 
 import android.annotation.SuppressLint
@@ -16,6 +18,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.AudioManager
+import android.media.AudioFocusRequest
 import android.media.MediaPlayer
 import android.media.audiofx.Visualizer
 import android.media.session.MediaSessionManager
@@ -24,6 +27,7 @@ import android.os.Binder
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.RemoteException
 import android.os.SystemClock
 import android.support.v4.media.MediaMetadataCompat
@@ -31,6 +35,7 @@ import android.support.v4.media.session.MediaControllerCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.telephony.PhoneStateListener
+import android.telephony.TelephonyCallback
 import android.telephony.TelephonyManager
 import android.text.TextUtils
 import android.util.Log
@@ -40,18 +45,13 @@ import androidx.core.content.ContextCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.core.event.AppEventBus
-import com.jgm90.cloudmusic.core.event.BeatEvent
-import com.jgm90.cloudmusic.core.event.IsPlayingEvent
-import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
-import com.jgm90.cloudmusic.core.event.PlaybackInfoEvent
-import com.jgm90.cloudmusic.core.event.PlaybackLoadingEvent
-import com.jgm90.cloudmusic.core.event.PlayPauseEvent
-import com.jgm90.cloudmusic.core.event.VisualizerBandsEvent
 import com.jgm90.cloudmusic.core.innertube.InnerTubeConfig
 import com.jgm90.cloudmusic.core.innertube.YouTubeRepository
 import com.jgm90.cloudmusic.core.model.SongModel
+import com.jgm90.cloudmusic.core.playback.PlaybackCommand
+import com.jgm90.cloudmusic.core.playback.PlaybackCommandController
 import com.jgm90.cloudmusic.core.playback.PlaybackController
+import com.jgm90.cloudmusic.core.playback.PlaybackEventController
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
 import com.jgm90.cloudmusic.core.playback.PlaybackPreferences
 import com.jgm90.cloudmusic.core.playback.PlaybackStatus
@@ -64,6 +64,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -97,9 +99,12 @@ class MediaPlayerService : Service(),
     private var transportControls: MediaControllerCompat.TransportControls? = null
     private var resumePosition = 0
     private var audioManager: AudioManager? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
     private var activeAudio: SongModel? = null
     private var ongoingCall = false
+    @Suppress("DEPRECATION")
     private var phoneStateListener: PhoneStateListener? = null
+    private var telephonyCallback: TelephonyCallback? = null
     private var telephonyManager: TelephonyManager? = null
     private var pauseIntent: PendingIntent? = null
     private var playIntent: PendingIntent? = null
@@ -116,6 +121,7 @@ class MediaPlayerService : Service(),
     private var lastBeatEmitMs = 0L
     private val eventScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var eventJobs: List<Job> = emptyList()
+    private var progressJob: Job? = null
     @Inject
     lateinit var httpClient: OkHttpClient
     @Inject
@@ -125,6 +131,10 @@ class MediaPlayerService : Service(),
     lateinit var playbackController: PlaybackController
     @Inject
     lateinit var playbackPreferences: PlaybackPreferences
+    @Inject
+    lateinit var playbackEventController: PlaybackEventController
+    @Inject
+    lateinit var playbackCommandController: PlaybackCommandController
 
     private var currentIndex = -1
 
@@ -145,7 +155,7 @@ class MediaPlayerService : Service(),
                     pauseMedia()
                     setMediaPlaybackState(PlaybackStateCompat.STATE_PAUSED)
                     buildNotification(PlaybackStatus.PAUSED)
-                    AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                    playbackEventController.setIsPlaying(mediaPlayer?.isPlaying == true)
                 }
             }
         }
@@ -195,7 +205,12 @@ class MediaPlayerService : Service(),
     private val mediaSessionCallback: MediaSessionCompat.Callback =
         object : MediaSessionCompat.Callback() {
             override fun onMediaButtonEvent(mediaButtonEvent: Intent): Boolean {
-                val keyEvent = mediaButtonEvent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
+                val keyEvent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    mediaButtonEvent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    mediaButtonEvent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
+                }
                 if (keyEvent != null) {
                     val keyCode = keyEvent.keyCode
                     if (keyCode == KeyEvent.KEYCODE_HEADSETHOOK) {
@@ -226,7 +241,7 @@ class MediaPlayerService : Service(),
                 resumeMedia()
                 setMediaPlaybackState(PlaybackStateCompat.STATE_PLAYING)
                 buildNotification(PlaybackStatus.PLAYING)
-                AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                playbackEventController.setIsPlaying(mediaPlayer?.isPlaying == true)
             }
 
             override fun onPause() {
@@ -235,7 +250,7 @@ class MediaPlayerService : Service(),
                 pauseMedia()
                 setMediaPlaybackState(PlaybackStateCompat.STATE_PAUSED)
                 buildNotification(PlaybackStatus.PAUSED)
-                AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                playbackEventController.setIsPlaying(mediaPlayer?.isPlaying == true)
             }
 
             override fun onSkipToPrevious() {
@@ -290,14 +305,15 @@ class MediaPlayerService : Service(),
             PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         registerUserActions()
-        handler = Handler()
+        handler = Handler(Looper.getMainLooper())
         eventJobs = listOf(
-            AppEventBus.observe<PlayPauseEvent>(
-                eventScope,
-                receiveSticky = false
-            ) { eventPlayOrPause(it) },
-            AppEventBus.observe<IsPlayingEvent>(eventScope) { setIcon(it) },
+            playbackCommandController.commands.onEach { command ->
+                when (command) {
+                    PlaybackCommand.TogglePlayPause -> togglePlayPause()
+                }
+            }.launchIn(eventScope)
         )
+        startProgressUpdates()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -352,19 +368,40 @@ class MediaPlayerService : Service(),
 
     override fun onDestroy() {
         super.onDestroy()
+        progressJob?.cancel()
+        progressJob = null
         mediaPlayer?.let {
             stopMedia()
             it.release()
             removeAudioFocus()
         }
         releaseVisualizer()
-        phoneStateListener?.let { telephonyManager?.listen(it, PhoneStateListener.LISTEN_NONE) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            telephonyCallback?.let { telephonyManager?.unregisterTelephonyCallback(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            phoneStateListener?.let { telephonyManager?.listen(it, PhoneStateListener.LISTEN_NONE) }
+        }
         removeNotification()
         unregisterReceiver(playNewAudio)
         unregisterReceiver(userActions)
         eventJobs.forEach { it.cancel() }
         eventJobs = emptyList()
         eventScope.cancel()
+    }
+
+    private fun startProgressUpdates() {
+        progressJob?.cancel()
+        progressJob = eventScope.launch {
+            while (true) {
+                if (isPrepared && mediaPlayer != null) {
+                    val durationMs = duration().toInt()
+                    val positionMs = getPosition().toInt()
+                    playbackEventController.updateProgress(positionMs, durationMs)
+                }
+                kotlinx.coroutines.delay(500)
+            }
+        }
     }
 
     override fun onBufferingUpdate(mp: MediaPlayer, percent: Int) {
@@ -388,7 +425,7 @@ class MediaPlayerService : Service(),
                 mediaPlayer?.stop()
                 setMediaPlaybackState(PlaybackStateCompat.STATE_PAUSED)
                 buildNotification(PlaybackStatus.PAUSED)
-                AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                playbackEventController.setIsPlaying(mediaPlayer?.isPlaying == true)
                 return
             }
         } else {
@@ -441,7 +478,7 @@ class MediaPlayerService : Service(),
         consecutiveErrorCount = 0
         errorRecoveryInProgress = false
         isPrepared = true
-        AppEventBus.postSticky(PlaybackLoadingEvent(false))
+        playbackEventController.setLoading(false)
         playMedia()
         startVisualizer(mp.audioSessionId)
         updateMetaData(currentArt)
@@ -463,7 +500,7 @@ class MediaPlayerService : Service(),
                 if (mediaPlayer == null) initMediaPlayer()
                 else if (shouldResume) {
                     mediaPlayer?.start()
-                    AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                    playbackEventController.setIsPlaying(mediaPlayer?.isPlaying == true)
                     shouldResume = false
                 }
                 mediaPlayer?.setVolume(1.0f, 1.0f)
@@ -472,7 +509,7 @@ class MediaPlayerService : Service(),
             AudioManager.AUDIOFOCUS_LOSS -> {
                 if (isPlaying()) {
                     mediaPlayer?.pause()
-                    AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                    playbackEventController.setIsPlaying(mediaPlayer?.isPlaying == true)
                     shouldResume = false
                 }
             }
@@ -480,7 +517,7 @@ class MediaPlayerService : Service(),
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 if (isPlaying()) {
                     mediaPlayer?.pause()
-                    AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
+                    playbackEventController.setIsPlaying(mediaPlayer?.isPlaying == true)
                     shouldResume = true
                 }
             }
@@ -493,16 +530,37 @@ class MediaPlayerService : Service(),
 
     private fun requestAudioFocus(): Boolean {
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val result = audioManager?.requestAudioFocus(
-            this,
-            AudioManager.STREAM_MUSIC,
-            AudioManager.AUDIOFOCUS_GAIN
-        )
-        return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(attributes)
+                .setOnAudioFocusChangeListener(this)
+                .setAcceptsDelayedFocusGain(true)
+                .build()
+            audioFocusRequest = focusRequest
+            audioManager?.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            val result = audioManager?.requestAudioFocus(
+                this,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN
+            )
+            result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
     }
 
     private fun removeAudioFocus(): Boolean {
-        return AudioManager.AUDIOFOCUS_REQUEST_GRANTED == audioManager?.abandonAudioFocus(this)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val request = audioFocusRequest ?: return false
+            audioManager?.abandonAudioFocusRequest(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            AudioManager.AUDIOFOCUS_REQUEST_GRANTED == audioManager?.abandonAudioFocus(this)
+        }
     }
 
     private fun initMediaPlayer() {
@@ -531,7 +589,7 @@ class MediaPlayerService : Service(),
             try {
                 currentIndex = -1
                 preparingSource = true
-                AppEventBus.postSticky(PlaybackLoadingEvent(true))
+                playbackEventController.setLoading(true)
                 val token = ++prepareToken
 
                 eventScope.launch {
@@ -568,7 +626,7 @@ class MediaPlayerService : Service(),
 
                     if (source == null) {
                         preparingSource = false
-                        AppEventBus.postSticky(PlaybackLoadingEvent(false))
+                        playbackEventController.setLoading(false)
                         handlePlaybackError("Failed to get audio source")
                         return@launch
                     }
@@ -600,7 +658,7 @@ class MediaPlayerService : Service(),
                     preparingSource = false
 
                     if (!setResult) {
-                        AppEventBus.postSticky(PlaybackLoadingEvent(false))
+                        playbackEventController.setLoading(false)
                         handlePlaybackError("Failed to set data source")
                         return@launch
                     }
@@ -609,13 +667,13 @@ class MediaPlayerService : Service(),
                     runCatching {
                         mediaPlayer?.prepareAsync()
                     }.onFailure { error ->
-                        AppEventBus.postSticky(PlaybackLoadingEvent(false))
+                        playbackEventController.setLoading(false)
                         handlePlaybackError("prepareAsync failed: ${error.message}")
                     }
                 }
             } catch (e: Exception) {
                 preparingSource = false
-                AppEventBus.postSticky(PlaybackLoadingEvent(false))
+                playbackEventController.setLoading(false)
                 handlePlaybackError("Data source error: ${e.message}")
             }
         }
@@ -639,7 +697,7 @@ class MediaPlayerService : Service(),
                 } else {
                     it.start()
                 }
-                AppEventBus.postSticky(IsPlayingEvent(it.isPlaying))
+                playbackEventController.setIsPlaying(it.isPlaying)
                 publishPlaybackInfo(it.isPlaying)
             }
         } catch (_: Exception) {
@@ -669,8 +727,7 @@ class MediaPlayerService : Service(),
         visualizer?.enabled = true
     }
 
-    fun eventPlayOrPause(event: PlayPauseEvent) {
-        Log.d("Event", event.message)
+    fun togglePlayPause() {
         if (preparingSource || !isPrepared) {
             return
         }
@@ -681,7 +738,7 @@ class MediaPlayerService : Service(),
                 } else {
                     it.start()
                 }
-                AppEventBus.postSticky(IsPlayingEvent(it.isPlaying))
+                playbackEventController.setIsPlaying(it.isPlaying)
                 publishPlaybackInfo(it.isPlaying)
             }
         } catch (_: Exception) {
@@ -782,35 +839,50 @@ class MediaPlayerService : Service(),
 
     private fun callStateListener() {
         telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
-        phoneStateListener = object : PhoneStateListener() {
-            override fun onCallStateChanged(state: Int, incomingNumber: String) {
-                when (state) {
-                    TelephonyManager.CALL_STATE_OFFHOOK,
-                    TelephonyManager.CALL_STATE_RINGING -> {
-                        if (mediaPlayer != null) {
-                            ongoingCall = true
-                            if (isPlaying()) {
-                                pauseMedia()
-                                AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
-                                shouldResume = true
-                            }
-                        }
-                    }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val callback = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
+                override fun onCallStateChanged(state: Int) {
+                    handleCallState(state)
+                }
+            }
+            telephonyCallback = callback
+            telephonyManager?.registerTelephonyCallback(mainExecutor, callback)
+        } else {
+            @Suppress("DEPRECATION")
+            phoneStateListener = object : PhoneStateListener() {
+                override fun onCallStateChanged(state: Int, incomingNumber: String) {
+                    handleCallState(state)
+                }
+            }
+            @Suppress("DEPRECATION")
+            telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
+        }
+    }
 
-                    TelephonyManager.CALL_STATE_IDLE -> {
-                        if (mediaPlayer != null && ongoingCall) {
-                            ongoingCall = false
-                            if (shouldResume) {
-                                resumeMedia()
-                                AppEventBus.postSticky(IsPlayingEvent(mediaPlayer?.isPlaying == true))
-                                shouldResume = false
-                            }
-                        }
+    private fun handleCallState(state: Int) {
+        when (state) {
+            TelephonyManager.CALL_STATE_OFFHOOK,
+            TelephonyManager.CALL_STATE_RINGING -> {
+                if (mediaPlayer != null) {
+                    ongoingCall = true
+                    if (isPlaying()) {
+                        pauseMedia()
+                        playbackEventController.setIsPlaying(mediaPlayer?.isPlaying == true)
+                        shouldResume = true
+                    }
+                }
+            }
+            TelephonyManager.CALL_STATE_IDLE -> {
+                if (mediaPlayer != null && ongoingCall) {
+                    ongoingCall = false
+                    if (shouldResume) {
+                        resumeMedia()
+                        playbackEventController.setIsPlaying(mediaPlayer?.isPlaying == true)
+                        shouldResume = false
                     }
                 }
             }
         }
-        telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
     }
 
     @Throws(RemoteException::class)
@@ -818,6 +890,7 @@ class MediaPlayerService : Service(),
         val receiver = ComponentName(applicationContext, MediaButtonReceiver::class.java)
         mediaSession = MediaSessionCompat(applicationContext, "MediaPlayerService", receiver, null)
         mediaSession?.setCallback(mediaSessionCallback)
+        @Suppress("DEPRECATION")
         mediaSession?.setFlags(
             MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS,
         )
@@ -852,25 +925,8 @@ class MediaPlayerService : Service(),
         mediaSession?.setPlaybackState(playBackStateBuilder.build())
     }
 
-    fun setIcon(event: IsPlayingEvent) {
-        if (event.isPlaying) {
-            setMediaPlaybackState(PlaybackStateCompat.STATE_PLAYING)
-            buildNotification(PlaybackStatus.PLAYING)
-        } else {
-            setMediaPlaybackState(PlaybackStateCompat.STATE_PAUSED)
-            buildNotification(PlaybackStatus.PAUSED)
-        }
-        publishPlaybackInfo(event.isPlaying)
-    }
-
     private fun retrievedAudioFocus(): Boolean {
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val result = audioManager.requestAudioFocus(
-            this,
-            AudioManager.STREAM_MUSIC,
-            AudioManager.AUDIOFOCUS_GAIN,
-        )
-        return result == AudioManager.AUDIOFOCUS_GAIN
+        return requestAudioFocus()
     }
 
     private fun updateMetaData(albumArt: Bitmap?) {
@@ -957,7 +1013,7 @@ class MediaPlayerService : Service(),
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setOnlyAlertOnce(true)
             .setSilent(true)
-            .setPriority(Notification.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setOngoing(playbackStatus == PlaybackStatus.PLAYING)
             .setVibrate(longArrayOf(0))
             .setContentIntent(createContentIntent())
@@ -1009,7 +1065,7 @@ class MediaPlayerService : Service(),
                     updateMetaData(bitmap)
                     currentIndex = audioIndex
                     currentArt = bitmap
-                    AppEventBus.postSticky(OnSourceChangeEvent("Metadata changed"))
+                    playbackEventController.emitSourceChanged()
                 }
             } else {
                 Log.e("MediaPlayerService", "Failed to load notification art for $candidates")
@@ -1052,13 +1108,11 @@ class MediaPlayerService : Service(),
         val current = activeAudio ?: playbackController.queueState.value.current ?: return
         val artUrl = current.getCoverThumbnail()
         val isPlaying = isPlayingOverride ?: (mediaPlayer?.isPlaying == true)
-        AppEventBus.postSticky(
-            PlaybackInfoEvent(
-                title = current.name,
-                artist = TextUtils.join(", ", current.artist),
-                artUrl = artUrl,
-                isPlaying = isPlaying,
-            )
+        playbackEventController.updateInfo(
+            title = current.name,
+            artist = TextUtils.join(", ", current.artist),
+            artUrl = artUrl,
+            isPlaying = isPlaying,
         )
     }
 
@@ -1167,8 +1221,8 @@ class MediaPlayerService : Service(),
                                 bands[band] = (avg / 128f).coerceIn(0f, 1f)
                             }
                             val level = if (count == 0) 0f else (sum / count / 128f).coerceIn(0f, 1f)
-                            AppEventBus.post(BeatEvent(level))
-                            AppEventBus.post(VisualizerBandsEvent(bands))
+                            playbackEventController.emitBeat(level)
+                            playbackEventController.emitBands(bands)
                         }
 
                         override fun onWaveFormDataCapture(
@@ -1201,7 +1255,7 @@ class MediaPlayerService : Service(),
     private fun handlePlaybackError(message: String) {
         Log.w("MediaPlayerService", message)
         preparingSource = false
-        AppEventBus.postSticky(PlaybackLoadingEvent(false))
+        playbackEventController.setLoading(false)
         prepareToken += 1
         releaseVisualizer()
         if (errorRecoveryInProgress) {

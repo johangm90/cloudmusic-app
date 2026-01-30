@@ -28,6 +28,7 @@ object SharedUtils {
     }
 
     @JvmStatic
+    @Suppress("DEPRECATION")
     fun isMyServiceRunning(context: Context, serviceClass: Class<*>): Boolean {
         val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         for (service in manager.getRunningServices(Int.MAX_VALUE)) {

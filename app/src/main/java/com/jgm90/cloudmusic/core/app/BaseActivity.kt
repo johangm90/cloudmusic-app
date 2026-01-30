@@ -19,6 +19,7 @@ open class BaseActivity : ComponentActivity(), ServiceConnection {
 
     protected val playbackControlsVisible = mutableStateOf(false)
 
+    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = android.graphics.Color.parseColor("#0B1118")

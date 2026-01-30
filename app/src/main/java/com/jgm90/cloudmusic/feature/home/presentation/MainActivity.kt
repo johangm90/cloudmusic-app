@@ -42,8 +42,8 @@ import androidx.core.text.HtmlCompat
 import androidx.lifecycle.lifecycleScope
 import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.app.BaseActivity
-import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.DownloadEvent
+import com.jgm90.cloudmusic.core.download.DownloadEventController
 import com.jgm90.cloudmusic.core.data.preferences.AppVersionStore
 import com.jgm90.cloudmusic.core.playback.PlaybackController
 import com.jgm90.cloudmusic.core.ui.theme.AppBackground
@@ -60,6 +60,7 @@ import com.jgm90.cloudmusic.feature.settings.presentation.screen.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : BaseActivity() {
@@ -70,6 +71,8 @@ class MainActivity : BaseActivity() {
     lateinit var playbackController: PlaybackController
     @Inject
     lateinit var appVersionStore: AppVersionStore
+    @Inject
+    lateinit var downloadEventController: DownloadEventController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.AppTheme)
@@ -104,10 +107,11 @@ class MainActivity : BaseActivity() {
     override fun onStart() {
         super.onStart()
         eventJobs = listOf(
-            AppEventBus.observe<DownloadEvent>(lifecycleScope) { event ->
-                download(event)
-                AppEventBus.clearSticky(DownloadEvent::class)
-            },
+            lifecycleScope.launch {
+                downloadEventController.events.collect { event ->
+                    download(event)
+                }
+            }
         )
     }
 

@@ -15,7 +15,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,8 +52,8 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.DownloadEvent
+import com.jgm90.cloudmusic.core.download.DownloadEventsViewModel
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.feature.playlist.presentation.dialogs.AddToPlaylistDialog
 import com.jgm90.cloudmusic.feature.playlist.presentation.viewmodel.PlaylistViewModel
@@ -78,6 +78,7 @@ fun SearchScreen(
     onSearchActiveChange: (Boolean) -> Unit = {},
     viewModel: SearchViewModel = hiltViewModel(),
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    downloadViewModel: DownloadEventsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val historyStore = remember { SearchHistoryStore(context) }
@@ -122,7 +123,7 @@ fun SearchScreen(
             onSearch = { submitSearch() },
             onLoadMore = { viewModel.loadMore() },
             onDownload = { song ->
-                AppEventBus.postSticky(
+                downloadViewModel.emit(
                     DownloadEvent(
                         true,
                         DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,
@@ -282,7 +283,7 @@ private fun SearchResultsScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = null)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
                 },
                 actions = {

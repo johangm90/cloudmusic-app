@@ -24,7 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.core.event.AppEventBus
+import com.jgm90.cloudmusic.core.download.DownloadEventsViewModel
 import com.jgm90.cloudmusic.core.event.DownloadEvent
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.feature.playlist.presentation.dialogs.AddToPlaylistDialog
@@ -40,6 +40,7 @@ fun RecentlyPlayedScreen(
     onOpenNowPlaying: (Int, List<SongModel>) -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    downloadViewModel: DownloadEventsViewModel = hiltViewModel(),
 ) {
     var songs by remember { mutableStateOf<List<SongModel>>(emptyList()) }
     var addToPlaylistSong by remember { mutableStateOf<SongModel?>(null) }
@@ -85,7 +86,7 @@ fun RecentlyPlayedScreen(
                         albumName = song.album,
                         onClick = { onOpenNowPlaying(index, songs) },
                         onDownloadClick = {
-                            AppEventBus.postSticky(
+                            downloadViewModel.emit(
                                 DownloadEvent(
                                     true,
                                     DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,
@@ -118,6 +119,7 @@ fun LikedSongsScreen(
     onOpenNowPlaying: (Int, List<SongModel>) -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
+    downloadViewModel: DownloadEventsViewModel = hiltViewModel(),
 ) {
     var songs by remember { mutableStateOf<List<SongModel>>(emptyList()) }
     var addToPlaylistSong by remember { mutableStateOf<SongModel?>(null) }
@@ -163,7 +165,7 @@ fun LikedSongsScreen(
                         albumName = song.album,
                         onClick = { onOpenNowPlaying(index, songs) },
                         onDownloadClick = {
-                            AppEventBus.postSticky(
+                            downloadViewModel.emit(
                                 DownloadEvent(
                                     true,
                                     DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED,

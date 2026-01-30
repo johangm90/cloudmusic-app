@@ -22,6 +22,7 @@ import com.jgm90.cloudmusic.core.data.local.entity.SongEntity
         LikedSongEntity::class,
     ],
     version = 3,
+    exportSchema = false,
 )
 @TypeConverters(Converters::class)
 abstract class CloudMusicDatabase : RoomDatabase() {
@@ -42,7 +43,7 @@ abstract class CloudMusicDatabase : RoomDatabase() {
                     CloudMusicDatabase::class.java,
                     DB_NAME,
                 )
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                     .also { instance = it }
             }

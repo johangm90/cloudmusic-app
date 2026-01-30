@@ -19,7 +19,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -141,7 +141,7 @@ private fun SettingsSection(
                 )
             },
         )
-        Divider(color = MaterialTheme.colorScheme.surfaceVariant)
+        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
         Column(
             modifier = Modifier
                 .fillMaxWidth()

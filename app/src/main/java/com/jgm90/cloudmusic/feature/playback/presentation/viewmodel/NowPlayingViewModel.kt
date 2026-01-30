@@ -13,16 +13,10 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import coil3.toBitmap
-import com.jgm90.cloudmusic.core.event.AppEventBus
-import com.jgm90.cloudmusic.core.event.BeatEvent
-import com.jgm90.cloudmusic.core.event.IsPlayingEvent
-import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
-import com.jgm90.cloudmusic.core.event.PlaybackLoadingEvent
-import com.jgm90.cloudmusic.core.event.PlayPauseEvent
-import com.jgm90.cloudmusic.core.event.VisualizerBandsEvent
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.playback.LyricLine
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
+import com.jgm90.cloudmusic.core.playback.PlaybackEventController
 import com.jgm90.cloudmusic.core.playback.PlaybackController
 import com.jgm90.cloudmusic.core.playback.PlaybackPreferences
 import com.jgm90.cloudmusic.core.util.SharedUtils
@@ -55,6 +49,7 @@ class NowPlayingViewModel @Inject constructor(
     private val playbackLibraryUseCase: PlaybackLibraryUseCase,
     private val playbackPreferences: PlaybackPreferences,
     private val imageLoader: ImageLoader,
+    private val playbackEventController: PlaybackEventController,
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(NowPlayingUiState())
@@ -64,7 +59,10 @@ class NowPlayingViewModel @Inject constructor(
     private var currentLineIndex = 0
     private var userSeeking = false
     private var lastSeedUrl: String? = null
-    private var progressJob: Job? = null
+    private var lastPosition = -1
+    private var lastDuration = -1
+    private var lastElapsedSec = -1
+    private var lastDurationSec = -1
     private var lyricsJob: Job? = null
     private var eventJobs: List<Job> = emptyList()
     private var settingsJob: Job? = null
@@ -72,9 +70,6 @@ class NowPlayingViewModel @Inject constructor(
     var playerService: MediaPlayerService? = null
         set(value) {
             field = value
-            if (value != null) {
-                startProgressUpdates()
-            }
         }
 
     init {
@@ -100,42 +95,36 @@ class NowPlayingViewModel @Inject constructor(
     fun startEventObservation() {
         stopEventObservation()
         eventJobs = listOf(
-            AppEventBus.observe<IsPlayingEvent>(viewModelScope) { event ->
-                _uiState.update { it.copy(isPlaying = event.isPlaying) }
+            viewModelScope.launch {
+                playbackEventController.isPlaying.collect { isPlaying ->
+                    _uiState.update { it.copy(isPlaying = isPlaying) }
+                }
             },
-            AppEventBus.observe<OnSourceChangeEvent>(viewModelScope) { event ->
-                resetLyrics()
-                loadCurrentSongInfo()
+            viewModelScope.launch {
+                playbackEventController.sourceChanged.collect {
+                    resetLyrics()
+                    loadCurrentSongInfo()
+                }
             },
-            AppEventBus.observe<BeatEvent>(viewModelScope, receiveSticky = false) { event ->
-                _uiState.update { it.copy(beatLevel = event.level) }
+            viewModelScope.launch {
+                playbackEventController.beat.collect { level ->
+                    _uiState.update { it.copy(beatLevel = level) }
+                }
             },
-            AppEventBus.observe<VisualizerBandsEvent>(viewModelScope, receiveSticky = false) { event ->
-                _uiState.update { it.copy(visualizerBands = event.bands) }
+            viewModelScope.launch {
+                playbackEventController.bands.collect { bands ->
+                    _uiState.update { it.copy(visualizerBands = bands) }
+                }
             },
-            AppEventBus.observe<PlaybackLoadingEvent>(viewModelScope) { event ->
-                _uiState.update { it.copy(isLoading = event.isLoading) }
+            viewModelScope.launch {
+                playbackEventController.isLoading.collect { isLoading ->
+                    _uiState.update { it.copy(isLoading = isLoading) }
+                }
             },
-        )
-    }
-
-    fun stopEventObservation() {
-        eventJobs.forEach { it.cancel() }
-        eventJobs = emptyList()
-    }
-
-    fun startProgressUpdates() {
-        progressJob?.cancel()
-        progressJob = viewModelScope.launch {
-            var lastPosition = -1
-            var lastDuration = -1
-            var lastElapsedSec = -1
-            var lastDurationSec = -1
-            while (isActive) {
-                val service = playerService
-                if (service != null && service.isPlaying()) {
-                    val duration = service.duration().toInt()
-                    val position = service.getPosition().toInt()
+            viewModelScope.launch {
+                playbackEventController.progress.collect { progress ->
+                    val duration = progress.durationMs
+                    val position = progress.positionMs
                     val elapsedSec = (position / 1000L).toInt()
                     val durationSec = (duration / 1000L).toInt()
                     val context = getApplication<Application>()
@@ -149,14 +138,13 @@ class NowPlayingViewModel @Inject constructor(
                     } else {
                         null
                     }
-                    if (position != lastPosition || duration != lastDuration || !_uiState.value.isPlaying) {
+                    if (position != lastPosition || duration != lastDuration) {
                         _uiState.update {
                             it.copy(
                                 durationMs = duration,
                                 durationText = durationText ?: it.durationText,
                                 progressMs = if (!userSeeking) position else it.progressMs,
                                 elapsedText = elapsedText ?: it.elapsedText,
-                                isPlaying = true
                             )
                         }
                     }
@@ -164,17 +152,14 @@ class NowPlayingViewModel @Inject constructor(
                     lastDuration = duration
                     lastElapsedSec = elapsedSec
                     lastDurationSec = durationSec
-                } else if (_uiState.value.isPlaying) {
-                    _uiState.update { it.copy(isPlaying = false) }
                 }
-                delay(200)
-            }
-        }
+            },
+        )
     }
 
-    fun stopProgressUpdates() {
-        progressJob?.cancel()
-        progressJob = null
+    fun stopEventObservation() {
+        eventJobs.forEach { it.cancel() }
+        eventJobs = emptyList()
     }
 
     private fun startLyricsSync() {
@@ -183,9 +168,8 @@ class NowPlayingViewModel @Inject constructor(
             while (isActive) {
                 val service = playerService
                 val lyricsList = lyrics
-                val isPlaying = service?.isPlaying() == true
-                if (isPlaying && !lyricsList.isNullOrEmpty()) {
-                    val position = service?.getPosition() ?: 0L
+                if (service != null && service.isPlaying() && !lyricsList.isNullOrEmpty()) {
+                    val position = service.getPosition()
                     if (position > 0) {
                         val index = findLyricIndex(lyricsList, position)
                         if (index >= 0 && index != currentLineIndex) {
@@ -205,7 +189,7 @@ class NowPlayingViewModel @Inject constructor(
                         }
                     }
                 }
-                delay(if (isPlaying) 200 else 500)
+                delay(if (playerService?.isPlaying() == true) 200 else 500)
             }
         }
     }
@@ -347,7 +331,7 @@ class NowPlayingViewModel @Inject constructor(
             is NowPlayingAction.PlayPause -> {
                 viewModelScope.launch {
                     delay(250)
-                    playerService?.eventPlayOrPause(PlayPauseEvent("From ViewModel"))
+                    playerService?.togglePlayPause()
                 }
             }
             is NowPlayingAction.SkipToPrevious -> {
@@ -425,7 +409,6 @@ class NowPlayingViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         stopEventObservation()
-        stopProgressUpdates()
         lyricsJob?.cancel()
         settingsJob?.cancel()
     }

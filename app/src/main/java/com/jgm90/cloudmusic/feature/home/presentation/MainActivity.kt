@@ -44,12 +44,12 @@ import com.jgm90.cloudmusic.R
 import com.jgm90.cloudmusic.core.app.BaseActivity
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.DownloadEvent
+import com.jgm90.cloudmusic.core.data.preferences.AppVersionStore
+import com.jgm90.cloudmusic.core.playback.PlaybackController
 import com.jgm90.cloudmusic.core.ui.theme.AppBackground
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
-import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
 import com.jgm90.cloudmusic.feature.playback.presentation.PlaybackControlsBar
-import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
 import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
 import com.jgm90.cloudmusic.feature.playlist.presentation.LibraryScreen
 import com.jgm90.cloudmusic.feature.playlist.presentation.LikedSongsScreen
@@ -58,12 +58,18 @@ import com.jgm90.cloudmusic.feature.playlist.presentation.RecentlyPlayedScreen
 import com.jgm90.cloudmusic.feature.search.presentation.SearchScreen
 import com.jgm90.cloudmusic.feature.settings.presentation.screen.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.Job
 
 @AndroidEntryPoint
 class MainActivity : BaseActivity() {
     private var packageInfo: PackageInfo? = null
     private var eventJobs: List<Job> = emptyList()
+
+    @Inject
+    lateinit var playbackController: PlaybackController
+    @Inject
+    lateinit var appVersionStore: AppVersionStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.AppTheme)
@@ -72,7 +78,7 @@ class MainActivity : BaseActivity() {
             packageManager.getPackageInfo(packageName, 0)
         }.getOrNull()
         val versionName = packageInfo?.versionName.orEmpty()
-        val shouldShowChangelog = SharedUtils.get_version(this) != versionName
+        val shouldShowChangelog = appVersionStore.versionName.value != versionName
 
         setContent {
             CloudMusicTheme {
@@ -81,7 +87,7 @@ class MainActivity : BaseActivity() {
                     showChangelog = shouldShowChangelog,
                     showPlayback = showPlayback,
                     onChangelogDismiss = {
-                        SharedUtils.set_version(this@MainActivity, versionName)
+                        appVersionStore.setVersion(versionName)
                     },
                     onOpenNowPlaying = { openNowPlaying() },
                     onOpenNowPlayingWithList = { index, list -> openNowPlaying(index, list) },
@@ -114,7 +120,7 @@ class MainActivity : BaseActivity() {
     private fun openNowPlaying(index: Int, list: List<com.jgm90.cloudmusic.core.model.SongModel>) {
         val intent = Intent(this, NowPlayingActivity::class.java)
         intent.putExtra("SONG_INDEX", index)
-        MediaPlayerService.audioList = list.toMutableList()
+        playbackController.setQueue(list, index)
         startActivity(intent)
     }
 

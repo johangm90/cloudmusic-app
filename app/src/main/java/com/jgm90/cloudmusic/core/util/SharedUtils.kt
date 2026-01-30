@@ -2,9 +2,7 @@ package com.jgm90.cloudmusic.core.util
 
 import android.app.ActivityManager
 import android.content.Context
-import android.preference.PreferenceManager
 import com.jgm90.cloudmusic.R
-import com.jgm90.cloudmusic.core.playback.PlaybackMode
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -38,47 +36,6 @@ object SharedUtils {
             }
         }
         return false
-    }
-
-    fun set_version(context: Context?, version: String?) {
-        val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val editor = preferences.edit()
-        editor.putString("VERSION", version)
-        editor.apply()
-    }
-
-    fun get_version(context: Context?): String {
-        val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        return preferences.getString("VERSION", "0")!!
-    }
-
-    @JvmStatic
-    fun setRepeatMode(context: Context?, mode: PlaybackMode) {
-        val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val editor = preferences.edit()
-        editor.putInt("MODE", mode.ordinal)
-        editor.apply()
-    }
-
-    @JvmStatic
-    fun getRepeatMode(context: Context?): PlaybackMode {
-        val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val mode = preferences.getInt("MODE", 0)
-        return PlaybackMode.entries[mode]
-    }
-
-    @JvmStatic
-    fun setShuffle(context: Context?, suffle: Boolean) {
-        val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val editor = preferences.edit()
-        editor.putBoolean("SHUFFLE", suffle)
-        editor.apply()
-    }
-
-    @JvmStatic
-    fun getShuffle(context: Context?): Boolean {
-        val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-        return preferences.getBoolean("SHUFFLE", false)
     }
 
     @JvmStatic

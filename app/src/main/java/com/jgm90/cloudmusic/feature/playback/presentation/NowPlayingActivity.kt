@@ -11,17 +11,22 @@ import androidx.activity.viewModels
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.jgm90.cloudmusic.core.app.BaseActivity
+import com.jgm90.cloudmusic.core.playback.PlaybackController
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.feature.playback.presentation.screen.NowPlayingScreen
 import com.jgm90.cloudmusic.feature.playback.presentation.viewmodel.NowPlayingViewModel
 import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class NowPlayingActivity : BaseActivity() {
 
     private val viewModel: NowPlayingViewModel by viewModels()
+
+    @Inject
+    lateinit var playbackController: PlaybackController
     private val audioPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             viewModel.updateAudioPermission(granted)
@@ -53,16 +58,16 @@ class NowPlayingActivity : BaseActivity() {
             bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE)
         }
 
-        val audioList = MediaPlayerService.audioList
+        val audioList = playbackController.queueState.value.queue
 
         val extras = intent.extras
         if (extras != null) {
-            val songIndex = extras.getInt("SONG_INDEX", MediaPlayerService.audioIndex)
+            val songIndex = extras.getInt("SONG_INDEX", playbackController.queueState.value.index)
             playAudio()
-            MediaPlayerService.audioIndex = songIndex
+            playbackController.setIndex(songIndex)
             viewModel.loadSongInfo(songIndex, audioList)
         } else {
-            val songIndex = MediaPlayerService.audioIndex
+            val songIndex = playbackController.queueState.value.index
             viewModel.loadSongInfo(songIndex, audioList)
         }
 

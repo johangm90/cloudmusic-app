@@ -35,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -63,6 +64,7 @@ import io.nubit.cloudmusic.designsystem.component.EmptyState
 import io.nubit.cloudmusic.designsystem.component.Loader
 import io.nubit.cloudmusic.designsystem.component.SongItem
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 private enum class SearchMode {
     Home,
@@ -80,18 +82,25 @@ fun SearchScreen(
     val context = LocalContext.current
     val historyStore = remember { SearchHistoryStore(context) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val historyScope = rememberCoroutineScope()
 
     var query by remember { mutableStateOf("") }
     var mode by remember { mutableStateOf(SearchMode.Home) }
     var addToPlaylistSong by remember { mutableStateOf<SongModel?>(null) }
-    var history by remember { mutableStateOf(historyStore.getHistory()) }
+    var history by remember { mutableStateOf(emptyList<String>()) }
     var showHistory by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        history = historyStore.getHistory()
+    }
 
     fun submitSearch() {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return
-        historyStore.addQuery(trimmed)
-        history = historyStore.getHistory()
+        historyScope.launch {
+            historyStore.addQuery(trimmed)
+            history = historyStore.getHistory()
+        }
         viewModel.search(trimmed)
         mode = SearchMode.Results
     }
@@ -162,8 +171,10 @@ fun SearchScreen(
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 TextButton(onClick = {
-                                    historyStore.clear()
-                                    history = emptyList()
+                                    historyScope.launch {
+                                        historyStore.clear()
+                                        history = emptyList()
+                                    }
                                 }) {
                                     Text(
                                         text = stringResource(id = R.string.search_history_clear),

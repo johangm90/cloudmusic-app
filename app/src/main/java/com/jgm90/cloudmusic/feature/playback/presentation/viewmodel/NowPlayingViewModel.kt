@@ -13,7 +13,6 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import coil3.toBitmap
-import com.jgm90.cloudmusic.core.data.local.repository.LibraryRepository
 import com.jgm90.cloudmusic.core.event.AppEventBus
 import com.jgm90.cloudmusic.core.event.BeatEvent
 import com.jgm90.cloudmusic.core.event.IsPlayingEvent
@@ -21,14 +20,15 @@ import com.jgm90.cloudmusic.core.event.OnSourceChangeEvent
 import com.jgm90.cloudmusic.core.event.PlaybackLoadingEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
 import com.jgm90.cloudmusic.core.event.VisualizerBandsEvent
-import com.jgm90.cloudmusic.core.innertube.YouTubeRepository
 import com.jgm90.cloudmusic.core.model.SongModel
-import com.jgm90.cloudmusic.core.network.RestInterface
 import com.jgm90.cloudmusic.core.playback.LyricLine
-import com.jgm90.cloudmusic.core.playback.Lyrics
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
+import com.jgm90.cloudmusic.core.playback.PlaybackController
+import com.jgm90.cloudmusic.core.playback.PlaybackPreferences
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.core.ui.theme.ThemeController
+import com.jgm90.cloudmusic.feature.playback.domain.usecase.GetLyricsUseCase
+import com.jgm90.cloudmusic.feature.playback.domain.usecase.PlaybackLibraryUseCase
 import com.jgm90.cloudmusic.feature.playback.presentation.state.NowPlayingAction
 import com.jgm90.cloudmusic.feature.playback.presentation.state.NowPlayingUiState
 import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
@@ -49,10 +49,12 @@ import javax.inject.Inject
 @HiltViewModel
 class NowPlayingViewModel @Inject constructor(
     application: Application,
-    private val restInterface: RestInterface,
-    private val youTubeRepository: YouTubeRepository,
-    private val libraryRepository: LibraryRepository,
     private val settingsRepository: SettingsRepository,
+    private val playbackController: PlaybackController,
+    private val getLyricsUseCase: GetLyricsUseCase,
+    private val playbackLibraryUseCase: PlaybackLibraryUseCase,
+    private val playbackPreferences: PlaybackPreferences,
+    private val imageLoader: ImageLoader,
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(NowPlayingUiState())
@@ -78,8 +80,8 @@ class NowPlayingViewModel @Inject constructor(
     init {
         _uiState.update {
             it.copy(
-                shuffleEnabled = SharedUtils.getShuffle(application),
-                repeatMode = SharedUtils.getRepeatMode(application),
+                shuffleEnabled = playbackPreferences.shuffleEnabled.value,
+                repeatMode = playbackPreferences.repeatMode.value,
                 settings = settingsRepository.settings.value
             )
         }
@@ -235,7 +237,7 @@ class NowPlayingViewModel @Inject constructor(
     fun loadCurrentSongInfo() {
         val service = playerService ?: return
         val index = service.current_index()
-        val audioList = MediaPlayerService.audioList
+        val audioList = playbackController.queueState.value.queue
         if (index in audioList.indices) {
             loadSongInfo(index, audioList)
         }
@@ -259,12 +261,12 @@ class NowPlayingViewModel @Inject constructor(
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            libraryRepository.addRecent(song)
+            playbackLibraryUseCase.addRecent(song)
         }
 
         viewModelScope.launch {
             val liked = withContext(Dispatchers.IO) {
-                libraryRepository.isLiked(song.id)
+                playbackLibraryUseCase.isLiked(song.id)
             }
             _uiState.update { it.copy(isLiked = liked) }
         }
@@ -291,38 +293,16 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     private fun loadLyrics(song: SongModel) {
-        if (!TextUtils.isEmpty(song.local_lyric)) {
-            song.local_lyric?.let { lrc ->
-                lyrics = Lyrics.parse(lrc)
-                if (!lyrics.isNullOrEmpty()) {
-                    startLyricsSync()
-                } else {
-                    _uiState.update { it.copy(currentLyric = "No lyrics found", nextLyric = "") }
-                }
-            }
-        } else {
-            viewModelScope.launch {
-                val lyricText = runCatching {
-                    if (song.isYouTubeSource()) {
-                        val lyricId = song.lyric_id ?: song.id
-                        if (lyricId.isNullOrBlank()) {
-                            null
-                        } else {
-                            youTubeRepository.getLyrics(lyricId)?.lyric
-                        }
-                    } else {
-                        withContext(Dispatchers.IO) {
-                            restInterface.getLyrics(song.id)?.lyric
-                        }
-                    }
-                }.getOrNull()
+        viewModelScope.launch {
+            val lyricLines = runCatching {
+                getLyricsUseCase.execute(song)
+            }.getOrNull()
 
-                if (!lyricText.isNullOrEmpty()) {
-                    lyrics = Lyrics.parse(lyricText)
-                    startLyricsSync()
-                } else {
-                    _uiState.update { it.copy(currentLyric = "No lyrics found", nextLyric = "") }
-                }
+            if (!lyricLines.isNullOrEmpty()) {
+                lyrics = lyricLines
+                startLyricsSync()
+            } else {
+                _uiState.update { it.copy(currentLyric = "No lyrics found", nextLyric = "") }
             }
         }
     }
@@ -341,12 +321,11 @@ class NowPlayingViewModel @Inject constructor(
         }
         viewModelScope.launch(Dispatchers.IO) {
             val context = getApplication<Application>()
-            val loader = ImageLoader(context)
             val request = ImageRequest.Builder(context)
                 .data(cover)
                 .allowHardware(false)
                 .build()
-            val result = loader.execute(request) as? SuccessResult ?: return@launch
+            val result = imageLoader.execute(request) as? SuccessResult ?: return@launch
             val bitmap = result.image.toBitmap().let { source ->
                 if (source.config == Bitmap.Config.HARDWARE) {
                     source.copy(Bitmap.Config.ARGB_8888, false)
@@ -388,38 +367,37 @@ class NowPlayingViewModel @Inject constructor(
                 }
             }
             is NowPlayingAction.ToggleShuffle -> {
-                val context = getApplication<Application>()
-                val next = !SharedUtils.getShuffle(context)
-                SharedUtils.setShuffle(context, next)
+                val next = !playbackPreferences.shuffleEnabled.value
+                playbackPreferences.setShuffle(next)
                 _uiState.update { it.copy(shuffleEnabled = next) }
             }
             is NowPlayingAction.ToggleRepeat -> {
-                val context = getApplication<Application>()
-                when (SharedUtils.getRepeatMode(context)) {
+                val current = playbackPreferences.repeatMode.value
+                when (current) {
                     PlaybackMode.NORMAL -> {
-                        SharedUtils.setRepeatMode(context, PlaybackMode.REPEAT)
+                        playbackPreferences.setRepeatMode(PlaybackMode.REPEAT)
                         playerService?.setLoop(false)
                     }
                     PlaybackMode.REPEAT -> {
-                        SharedUtils.setRepeatMode(context, PlaybackMode.REPEAT_ONE)
+                        playbackPreferences.setRepeatMode(PlaybackMode.REPEAT_ONE)
                         playerService?.setLoop(true)
                     }
                     PlaybackMode.REPEAT_ONE -> {
-                        SharedUtils.setRepeatMode(context, PlaybackMode.NORMAL)
+                        playbackPreferences.setRepeatMode(PlaybackMode.NORMAL)
                         playerService?.setLoop(false)
                     }
                 }
-                _uiState.update { it.copy(repeatMode = SharedUtils.getRepeatMode(context)) }
+                _uiState.update { it.copy(repeatMode = playbackPreferences.repeatMode.value) }
             }
             is NowPlayingAction.ToggleLike -> {
                 val service = playerService ?: return
                 val index = service.current_index()
-                val audioList = MediaPlayerService.audioList
+                val audioList = playbackController.queueState.value.queue
                 if (index !in audioList.indices) return
                 val song = audioList[index]
                 viewModelScope.launch {
                     val liked = withContext(Dispatchers.IO) {
-                        libraryRepository.toggleLiked(song)
+                        playbackLibraryUseCase.toggleLiked(song)
                     }
                     _uiState.update { it.copy(isLiked = liked) }
                 }

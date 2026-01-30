@@ -48,14 +48,17 @@ import com.jgm90.cloudmusic.core.event.PlaybackInfoEvent
 import com.jgm90.cloudmusic.core.event.PlaybackLoadingEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
 import com.jgm90.cloudmusic.core.event.VisualizerBandsEvent
-import com.jgm90.cloudmusic.core.innertube.InnerTube
 import com.jgm90.cloudmusic.core.innertube.InnerTubeConfig
 import com.jgm90.cloudmusic.core.innertube.YouTubeRepository
 import com.jgm90.cloudmusic.core.model.SongModel
+import com.jgm90.cloudmusic.core.playback.PlaybackController
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
+import com.jgm90.cloudmusic.core.playback.PlaybackPreferences
 import com.jgm90.cloudmusic.core.playback.PlaybackStatus
 import com.jgm90.cloudmusic.core.util.SharedUtils
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -68,9 +71,9 @@ import okhttp3.Request
 import retrofit2.Call
 import java.io.File
 import java.util.Random
-import java.util.concurrent.TimeUnit
 import androidx.core.net.toUri
 
+@AndroidEntryPoint
 class MediaPlayerService : Service(),
     MediaPlayer.OnCompletionListener,
     MediaPlayer.OnPreparedListener,
@@ -113,18 +116,26 @@ class MediaPlayerService : Service(),
     private var lastBeatEmitMs = 0L
     private val eventScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var eventJobs: List<Job> = emptyList()
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
+    @Inject
+    lateinit var httpClient: OkHttpClient
+    @Inject
+    lateinit var youTubeRepository: YouTubeRepository
 
-    // YouTube InnerTube integration
-    private val innerTube by lazy {
-        InnerTube(httpClient)
-    }
-    private val youTubeRepository by lazy {
-        YouTubeRepository(innerTube)
-    }
+    @Inject
+    lateinit var playbackController: PlaybackController
+    @Inject
+    lateinit var playbackPreferences: PlaybackPreferences
+
+    private var currentIndex = -1
+
+    private val audioList: List<SongModel>
+        get() = playbackController.queueState.value.queue
+
+    private var audioIndex: Int
+        get() = playbackController.queueState.value.index
+        set(value) {
+            playbackController.setIndex(value)
+        }
 
     private val audioNoisyReceiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -291,10 +302,18 @@ class MediaPlayerService : Service(),
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
-            if (audioIndex != -1 && audioIndex < audioList.size) {
-                activeAudio = audioList[audioIndex]
-            } else {
+            if (audioList.isEmpty()) {
                 stopSelf()
+            } else {
+                if (audioIndex == -1) {
+                    audioIndex = 0
+                }
+                if (audioIndex in audioList.indices) {
+                    activeAudio = audioList[audioIndex]
+                } else {
+                    audioIndex = 0
+                    activeAudio = audioList[audioIndex]
+                }
             }
         } catch (e: NullPointerException) {
             stopSelf()
@@ -352,7 +371,10 @@ class MediaPlayerService : Service(),
     }
 
     override fun onCompletion(mp: MediaPlayer) {
-        val mode = SharedUtils.getRepeatMode(this)
+        val mode = playbackPreferences.repeatMode.value
+        if (audioList.isEmpty()) {
+            return
+        }
         if (audioIndex == audioList.size - 1) {
             if (mode == PlaybackMode.REPEAT) {
                 mediaPlayer?.isLooping = false
@@ -380,7 +402,7 @@ class MediaPlayerService : Service(),
                 return
             }
         }
-        if (SharedUtils.getShuffle(this)) {
+        if (playbackPreferences.shuffleEnabled.value) {
             val random = Random()
             audioIndex = random.nextInt((audioList.size - 1) + 1)
         }
@@ -710,13 +732,14 @@ class MediaPlayerService : Service(),
 
     fun skipToNext() {
         if (preparingSource) return
+        if (audioList.isEmpty()) return
         if (audioIndex == audioList.size - 1) {
             audioIndex = 0
             activeAudio = audioList[audioIndex]
         } else {
             activeAudio = audioList[++audioIndex]
         }
-        if (SharedUtils.getShuffle(this)) {
+        if (playbackPreferences.shuffleEnabled.value) {
             val random = Random()
             audioIndex = random.nextInt((audioList.size - 1) + 1)
             activeAudio = audioList[audioIndex]
@@ -734,13 +757,14 @@ class MediaPlayerService : Service(),
 
     fun skipToPrevious() {
         if (preparingSource) return
+        if (audioList.isEmpty()) return
         if (audioIndex == 0) {
             audioIndex = audioList.size - 1
             activeAudio = audioList[audioIndex]
         } else {
             activeAudio = audioList[--audioIndex]
         }
-        if (SharedUtils.getShuffle(this)) {
+        if (playbackPreferences.shuffleEnabled.value) {
             val random = Random()
             audioIndex = random.nextInt((audioList.size - 1) + 1)
             activeAudio = audioList[audioIndex]
@@ -965,7 +989,7 @@ class MediaPlayerService : Service(),
     }
 
     fun getAlbumArt(builder: NotificationCompat.Builder) {
-        val current = activeAudio ?: song
+        val current = activeAudio ?: playbackController.queueState.value.current
         if (current == null) {
             return
         }
@@ -1025,7 +1049,7 @@ class MediaPlayerService : Service(),
     }
 
     private fun publishPlaybackInfo(isPlayingOverride: Boolean? = null) {
-        val current = activeAudio ?: song ?: return
+        val current = activeAudio ?: playbackController.queueState.value.current ?: return
         val artUrl = current.getCoverThumbnail()
         val isPlaying = isPlayingOverride ?: (mediaPlayer?.isPlaying == true)
         AppEventBus.postSticky(
@@ -1219,32 +1243,5 @@ class MediaPlayerService : Service(),
         private const val REMOTE_CLICK_SLEEP_TIME_MS = 300
         private const val REQUEST_CODE = 100
         private const val NOTIFICATION_ID = 101
-
-        @JvmField
-        var audioList: MutableList<SongModel> = mutableListOf()
-
-        @JvmField
-        var audioIndex = -1
-
-        @JvmField
-        var currentIndex = -1
-
-        @JvmField
-        var song: SongModel? = null
-
-        @JvmStatic
-        fun getSongName(): String {
-            return song?.name ?: ""
-        }
-
-        @JvmStatic
-        fun getSongArtists(): String {
-            return song?.let { TextUtils.join(", ", it.artist) } ?: ""
-        }
-
-        @JvmStatic
-        fun getAlbumArtUrl(): String {
-            return song?.getCoverThumbnail() ?: ""
-        }
     }
 }

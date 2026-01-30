@@ -9,9 +9,9 @@ import androidx.activity.viewModels
 import com.jgm90.cloudmusic.core.app.BaseActivity
 import com.jgm90.cloudmusic.core.innertube.YouTubeRepository
 import com.jgm90.cloudmusic.core.model.SongModel
+import com.jgm90.cloudmusic.core.playback.PlaybackController
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
-import com.jgm90.cloudmusic.feature.playback.service.MediaPlayerService
 import com.jgm90.cloudmusic.feature.playlist.presentation.viewmodel.PlaylistViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -28,12 +28,15 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
-import java.util.concurrent.TimeUnit
 
 @AndroidEntryPoint
 class PlaylistDetailActivity : BaseActivity() {
     @Inject
     lateinit var youTubeRepository: YouTubeRepository
+    @Inject
+    lateinit var playbackController: PlaybackController
+    @Inject
+    lateinit var httpClient: OkHttpClient
 
     private val viewModel by viewModels<PlaylistViewModel>()
 
@@ -42,12 +45,6 @@ class PlaylistDetailActivity : BaseActivity() {
     private var playlistOffline = 0
     private var playlistCount = 0
 
-    private val httpClient by lazy {
-        OkHttpClient.Builder()
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .build()
-    }
     private val downloadLimiter = Semaphore(2)
     private val downloadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -98,7 +95,7 @@ class PlaylistDetailActivity : BaseActivity() {
     private fun openNowPlaying(index: Int, songs: List<SongModel>) {
         val intent = Intent(this, NowPlayingActivity::class.java)
         intent.putExtra("SONG_INDEX", index)
-        MediaPlayerService.audioList = songs.toMutableList()
+        playbackController.setQueue(songs, index)
         startActivity(intent)
     }
 

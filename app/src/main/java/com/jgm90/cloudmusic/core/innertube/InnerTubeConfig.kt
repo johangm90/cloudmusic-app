@@ -87,7 +87,12 @@ enum class InnerTubeClient(
     val userAgent: String,
     val clientId: Int,
     val referer: String,
-    val platform: String = "DESKTOP"
+    val platform: String = "DESKTOP",
+    val osVersion: String? = null,
+    val loginSupported: Boolean = false,
+    val useSignatureTimestamp: Boolean = false,
+    val isEmbedded: Boolean = false,
+    val baseUrl: String = InnerTubeConfig.BASE_URL
 ) {
     WEB(
         clientName = "WEB",
@@ -95,7 +100,8 @@ enum class InnerTubeClient(
         apiKey = InnerTubeConfig.ApiKeys.WEB,
         userAgent = InnerTubeConfig.UserAgents.WEB,
         clientId = InnerTubeConfig.ClientIds.WEB,
-        referer = InnerTubeConfig.Referrers.YOUTUBE
+        referer = InnerTubeConfig.Referrers.YOUTUBE,
+        baseUrl = "https://www.youtube.com/youtubei/v1/"
     ),
     // YouTube Music Web client (WEB_REMIX) - for search
     WEB_REMIX(
@@ -104,7 +110,10 @@ enum class InnerTubeClient(
         apiKey = InnerTubeConfig.ApiKeys.YOUTUBE_MUSIC,
         userAgent = InnerTubeConfig.UserAgents.WEB,
         clientId = InnerTubeConfig.ClientIds.WEB_REMIX,
-        referer = InnerTubeConfig.Referrers.YOUTUBE_MUSIC
+        referer = InnerTubeConfig.Referrers.YOUTUBE_MUSIC,
+        loginSupported = true,
+        useSignatureTimestamp = true,
+        baseUrl = "https://music.youtube.com/youtubei/v1/"
     ),
     ANDROID(
         clientName = "ANDROID",
@@ -113,7 +122,11 @@ enum class InnerTubeClient(
         userAgent = InnerTubeConfig.UserAgents.ANDROID,
         clientId = InnerTubeConfig.ClientIds.ANDROID,
         referer = InnerTubeConfig.Referrers.YOUTUBE,
-        platform = "MOBILE"
+        platform = "MOBILE",
+        osVersion = "12",
+        loginSupported = true,
+        useSignatureTimestamp = true,
+        baseUrl = "https://www.youtube.com/youtubei/v1/"
     ),
     IOS(
         clientName = "IOS",
@@ -122,7 +135,9 @@ enum class InnerTubeClient(
         userAgent = InnerTubeConfig.UserAgents.IOS,
         clientId = InnerTubeConfig.ClientIds.IOS,
         referer = InnerTubeConfig.Referrers.YOUTUBE,
-        platform = "MOBILE"
+        platform = "MOBILE",
+        osVersion = "17.5.1",
+        baseUrl = "https://www.youtube.com/youtubei/v1/"
     ),
     YOUTUBE_MUSIC_ANDROID(
         clientName = "ANDROID_MUSIC",
@@ -131,25 +146,21 @@ enum class InnerTubeClient(
         userAgent = InnerTubeConfig.UserAgents.ANDROID_MUSIC,
         clientId = InnerTubeConfig.ClientIds.YOUTUBE_MUSIC_ANDROID,
         referer = InnerTubeConfig.Referrers.YOUTUBE_MUSIC,
-        platform = "MOBILE"
+        platform = "MOBILE",
+        osVersion = "12",
+        loginSupported = true,
+        useSignatureTimestamp = true,
+        baseUrl = "https://music.youtube.com/youtubei/v1/"
     );
-
-    fun buildContext(): Map<String, Any> = mapOf(
-        "client" to mapOf(
-            "clientName" to clientName,
-            "clientVersion" to clientVersion,
-            "platform" to platform,
-            "hl" to "en",
-            "gl" to "US"
-        )
-    )
 
     fun buildHeaders(): Map<String, String> = mapOf(
         "User-Agent" to userAgent,
         "Referer" to referer,
+        "X-Origin" to referer.trimEnd('/'),
         "Origin" to referer.trimEnd('/'),
         "Content-Type" to "application/json",
         "X-Goog-Api-Key" to apiKey,
+        "X-Goog-Api-Format-Version" to "1",
         "X-YouTube-Client-Name" to clientId.toString(),
         "X-YouTube-Client-Version" to clientVersion
     )

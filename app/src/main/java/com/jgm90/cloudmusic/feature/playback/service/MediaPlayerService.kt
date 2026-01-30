@@ -19,6 +19,7 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.audiofx.Visualizer
 import android.media.session.MediaSessionManager
+import android.net.Uri
 import android.os.Binder
 import android.os.Build
 import android.os.Handler
@@ -48,6 +49,7 @@ import com.jgm90.cloudmusic.core.event.PlaybackLoadingEvent
 import com.jgm90.cloudmusic.core.event.PlayPauseEvent
 import com.jgm90.cloudmusic.core.event.VisualizerBandsEvent
 import com.jgm90.cloudmusic.core.innertube.InnerTube
+import com.jgm90.cloudmusic.core.innertube.InnerTubeConfig
 import com.jgm90.cloudmusic.core.innertube.YouTubeRepository
 import com.jgm90.cloudmusic.core.model.SongModel
 import com.jgm90.cloudmusic.core.playback.PlaybackMode
@@ -67,6 +69,7 @@ import retrofit2.Call
 import java.io.File
 import java.util.Random
 import java.util.concurrent.TimeUnit
+import androidx.core.net.toUri
 
 class MediaPlayerService : Service(),
     MediaPlayer.OnCompletionListener,
@@ -555,7 +558,17 @@ class MediaPlayerService : Service(),
                             return@withContext false
                         }
                         runCatching {
-                            mediaPlayer?.setDataSource(source)
+                            if (audio.isYouTubeSource() && source.startsWith("http")) {
+                                val headers = mapOf(
+                                    "User-Agent" to InnerTubeConfig.UserAgents.ANDROID,
+                                    "Referer" to InnerTubeConfig.Referrers.YOUTUBE,
+                                    "Origin" to InnerTubeConfig.Referrers.YOUTUBE.trimEnd('/')
+                                )
+                                mediaPlayer?.setDataSource(applicationContext,
+                                    source.toUri(), headers)
+                            } else {
+                                mediaPlayer?.setDataSource(source)
+                            }
                         }.isSuccess
                     }
 

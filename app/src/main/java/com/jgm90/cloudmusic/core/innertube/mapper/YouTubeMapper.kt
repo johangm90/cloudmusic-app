@@ -179,18 +179,31 @@ object YouTubeMapper {
 
         val streamingData = response.streamingData ?: return null
 
-        // Find best audio-only format (highest bitrate)
+        // Prefer progressive mp4 (muxed audio+video) to maximize MediaPlayer compatibility.
+        streamingData.formats
+            ?.filter { it.url != null && it.mimeType?.contains("video/mp4") == true && it.audioQuality != null }
+            ?.maxByOrNull { it.bitrate ?: 0 }
+            ?.url
+            ?.let { return it }
+
+        // Fallback to any audio-only format if mp4 not available.
         val audioFormats = streamingData.adaptiveFormats
             ?.filter { it.isAudioOnly() && it.url != null }
-            ?.sortedByDescending { it.bitrate ?: 0 }
+            .orEmpty()
 
-        audioFormats?.firstOrNull()?.url?.let { return it }
+        audioFormats
+            .filter { it.mimeType?.contains("audio/mp4") == true }.maxByOrNull { it.bitrate ?: 0 }
+            ?.url
+            ?.let { return it }
+
+        // Fallback to any audio-only format.
+        audioFormats.maxByOrNull { it.bitrate ?: 0 }
+            ?.url
+            ?.let { return it }
 
         // Fallback to combined formats
         streamingData.formats
-            ?.filter { it.url != null }
-            ?.sortedByDescending { it.bitrate ?: 0 }
-            ?.firstOrNull()?.url?.let { return it }
+            ?.filter { it.url != null }?.maxByOrNull { it.bitrate ?: 0 }?.url?.let { return it }
 
         // Try HLS manifest
         streamingData.hlsManifestUrl?.let { return it }

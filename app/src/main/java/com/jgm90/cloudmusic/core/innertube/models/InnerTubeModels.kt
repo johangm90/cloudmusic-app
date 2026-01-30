@@ -11,11 +11,25 @@ data class InnerTubeRequest(
     val browseId: String? = null,
     val params: String? = null,
     val continuation: String? = null,
-    val playlistId: String? = null
+    val playlistId: String? = null,
+    val playlistSetVideoId: String? = null,
+    val index: Int? = null,
+    val playbackContext: PlaybackContext? = null
 )
 
+data class PlaybackContext(
+    val contentPlaybackContext: ContentPlaybackContext
+) {
+    data class ContentPlaybackContext(
+        val signatureTimestamp: Int
+    )
+}
+
 data class InnerTubeContext(
-    val client: ClientContext
+    val client: ClientContext,
+    val thirdParty: ThirdPartyContext? = null,
+    val request: RequestContext = RequestContext(),
+    val user: UserContext = UserContext()
 )
 
 data class ClientContext(
@@ -24,11 +38,26 @@ data class ClientContext(
     val platform: String = "DESKTOP",
     val hl: String = "en",
     val gl: String = "US",
+    val visitorData: String? = null,
     val userAgent: String? = null,
     val deviceModel: String? = null,
     val androidSdkVersion: Int? = null,
     val osName: String? = null,
     val osVersion: String? = null
+)
+
+data class ThirdPartyContext(
+    val embedUrl: String
+)
+
+data class RequestContext(
+    val internalExperimentFlags: List<String> = emptyList(),
+    val useSsl: Boolean = true
+)
+
+data class UserContext(
+    val lockedSafetyMode: Boolean = false,
+    val onBehalfOfUser: String? = null
 )
 
 // ============== Response Models ==============

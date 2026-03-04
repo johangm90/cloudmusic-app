@@ -4,6 +4,8 @@ import android.util.Log
 import com.google.gson.Gson
 import com.jgm90.cloudmusic.core.innertube.mapper.SearchResult
 import com.jgm90.cloudmusic.core.innertube.mapper.YouTubeMapper
+import com.jgm90.cloudmusic.core.model.AlbumModel
+import com.jgm90.cloudmusic.core.model.ArtistModel
 import com.jgm90.cloudmusic.core.model.LyricModel
 import com.jgm90.cloudmusic.core.model.SongModel
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +30,9 @@ class YouTubeRepository @Inject constructor(
 
     // Stream URL cache to avoid repeated player requests
     private val streamUrlCache = mutableMapOf<String, CachedStreamUrl>()
+
+    // Clients that repeatedly fail due server-side preconditions.
+    private val temporarilyBlockedClients = mutableSetOf<InnerTubeClient>()
 
     // Store continuation token for pagination
     private var lastSearchContinuation: String? = null
@@ -152,25 +157,55 @@ class YouTubeRepository @Inject constructor(
 
         Log.d(TAG, "Getting stream URL for: $videoId")
 
-        val result = innerTube.player(videoId)
-        return result.fold(
-            onSuccess = { response ->
-                val url = YouTubeMapper.mapPlayerResponseToStreamUrl(response)
-                if (url != null) {
-                    // Cache for 5 hours (YouTube URLs typically expire in 6 hours)
-                    val expireTime = System.currentTimeMillis() + (5 * 60 * 60 * 1000)
-                    streamUrlCache[videoId] = CachedStreamUrl(url, expireTime)
-                    Log.d(TAG, "Got stream URL: ${url.take(100)}...")
-                } else {
-                    Log.w(TAG, "No stream URL found for $videoId")
-                }
-                url
-            },
-            onFailure = { error ->
-                Log.e(TAG, "Failed to get stream URL", error)
-                null
-            }
+        val clientFallbackOrder = listOf(
+            InnerTubeClient.WEB_REMIX,
+            InnerTubeClient.WEB,
+            InnerTubeClient.ANDROID_VR_NO_AUTH,
+            InnerTubeClient.ANDROID,
+            InnerTubeClient.YOUTUBE_MUSIC_ANDROID,
+            InnerTubeClient.IOS,
         )
+
+        for (client in clientFallbackOrder) {
+            if (client in temporarilyBlockedClients) {
+                continue
+            }
+            val result = innerTube.player(videoId = videoId, clientType = client)
+            val url = result.fold(
+                onSuccess = { response ->
+                    val playableUrl = YouTubeMapper.mapPlayerResponseToStreamUrl(response)
+                    if (playableUrl == null) {
+                        Log.w(
+                            TAG,
+                            "No stream URL for $videoId with ${client.clientName}, status=${response.playabilityStatus?.status}, reason=${response.playabilityStatus?.reason}"
+                        )
+                    }
+                    playableUrl
+                },
+                onFailure = { error ->
+                    val errorMessage = error.message.orEmpty()
+                    if ("FAILED_PRECONDITION" in errorMessage) {
+                        temporarilyBlockedClients += client
+                    }
+                    Log.w(
+                        TAG,
+                        "Player request failed for $videoId with ${client.clientName}: $errorMessage"
+                    )
+                    null
+                }
+            )
+
+            if (!url.isNullOrBlank()) {
+                // Cache for 5 hours (YouTube URLs typically expire in 6 hours)
+                val expireTime = System.currentTimeMillis() + (5 * 60 * 60 * 1000)
+                streamUrlCache[videoId] = CachedStreamUrl(url, expireTime)
+                Log.d(TAG, "Got stream URL with ${client.clientName}: ${url.take(100)}...")
+                return url
+            }
+        }
+
+        Log.e(TAG, "Failed to resolve stream URL for $videoId after trying all clients")
+        return null
     }
 
     /**
@@ -179,16 +214,32 @@ class YouTubeRepository @Inject constructor(
     suspend fun getSongDetails(videoId: String): SongModel? {
         Log.d(TAG, "Getting song details for: $videoId")
 
-        val result = innerTube.player(videoId)
-        return result.fold(
-            onSuccess = { response ->
-                YouTubeMapper.mapPlayerResponseToSongDetails(response)
-            },
-            onFailure = { error ->
-                Log.e(TAG, "Failed to get song details", error)
-                null
-            }
+        val metadataClientOrder = listOf(
+            InnerTubeClient.WEB_REMIX,
+            InnerTubeClient.WEB,
+            InnerTubeClient.ANDROID_VR_NO_AUTH,
+            InnerTubeClient.ANDROID,
+            InnerTubeClient.YOUTUBE_MUSIC_ANDROID,
+            InnerTubeClient.IOS,
         )
+
+        for (client in metadataClientOrder) {
+            val result = innerTube.player(videoId = videoId, clientType = client)
+            val song = result.fold(
+                onSuccess = { response ->
+                    YouTubeMapper.mapPlayerResponseToSongDetails(response)
+                },
+                onFailure = {
+                    null
+                }
+            )
+            if (song != null) {
+                return song
+            }
+        }
+
+        Log.e(TAG, "Failed to get song details for $videoId")
+        return null
     }
 
     /**
@@ -210,6 +261,106 @@ class YouTubeRepository @Inject constructor(
             }
         )
     }
+
+
+    /**
+     * Search artists in YouTube Music
+     */
+    suspend fun searchArtists(query: String, limit: Int = 30): List<ArtistModel> {
+        if (query.isBlank()) return emptyList()
+
+        val result = innerTube.searchMusic(
+            query = query,
+            params = InnerTubeConfig.SearchParams.ARTISTS_FILTER
+        )
+
+        return result.fold(
+            onSuccess = { response ->
+                val artists = YouTubeMapper.mapMusicSearchResponseToArtists(response)
+                Log.d(TAG, "Found ${artists.size} artists for query=$query")
+                artists.take(limit)
+            },
+            onFailure = { error ->
+                Log.e(TAG, "Artist search failed", error)
+                emptyList()
+            }
+        )
+    }
+
+    /**
+     * Get artist songs by browse id
+     */
+    suspend fun getArtistTopSongs(artistId: String, limit: Int = 30): List<SongModel> {
+        if (artistId.isBlank()) return emptyList()
+
+        val result = innerTube.browse(
+            browseId = artistId,
+            clientType = InnerTubeClient.WEB_REMIX
+        )
+
+        return result.fold(
+            onSuccess = { response ->
+                val songs = YouTubeMapper.mapBrowseResponseToSongs(response)
+                    .distinctBy { it.id ?: it.name }
+                Log.d(TAG, "Found ${songs.size} songs for artist=$artistId")
+                songs.take(limit)
+            },
+            onFailure = { error ->
+                Log.e(TAG, "Artist browse failed", error)
+                emptyList()
+            }
+        )
+    }
+
+    /**
+     * Search albums in YouTube Music
+     */
+    suspend fun searchAlbums(query: String, limit: Int = 30): List<AlbumModel> {
+        if (query.isBlank()) return emptyList()
+
+        val result = innerTube.searchMusic(
+            query = query,
+            params = InnerTubeConfig.SearchParams.ALBUMS_FILTER
+        )
+
+        return result.fold(
+            onSuccess = { response ->
+                val albums = YouTubeMapper.mapMusicSearchResponseToAlbums(response)
+                Log.d(TAG, "Found ${albums.size} albums for query=$query")
+                albums.take(limit)
+            },
+            onFailure = { error ->
+                Log.e(TAG, "Album search failed", error)
+                emptyList()
+            }
+        )
+    }
+
+    /**
+     * Get album songs by browse id
+     */
+    suspend fun getAlbumSongs(albumId: String, limit: Int = 60): List<SongModel> {
+        if (albumId.isBlank()) return emptyList()
+
+        val result = innerTube.browse(
+            browseId = albumId,
+            clientType = InnerTubeClient.WEB_REMIX
+        )
+
+        return result.fold(
+            onSuccess = { response ->
+                val songs = YouTubeMapper.mapBrowseResponseToSongs(response)
+                    .distinctBy { it.id ?: it.name }
+                Log.d(TAG, "Found ${songs.size} songs for album=$albumId")
+                songs.take(limit)
+            },
+            onFailure = { error ->
+                Log.e(TAG, "Album browse failed", error)
+                emptyList()
+            }
+        )
+    }
+
 
     /**
      * Get search suggestions

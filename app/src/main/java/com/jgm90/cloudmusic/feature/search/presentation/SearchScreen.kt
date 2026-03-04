@@ -75,6 +75,10 @@ private enum class SearchMode {
 @Composable
 fun SearchScreen(
     onOpenNowPlaying: (Int, List<SongModel>) -> Unit,
+    onOpenArtist: (String, String?) -> Unit = { _, _ -> },
+    onOpenAlbum: (String, String?, String?) -> Unit = { _, _, _ -> },
+    onPlayNext: (SongModel) -> Unit = {},
+    onAddToQueue: (SongModel) -> Unit = {},
     onSearchActiveChange: (Boolean) -> Unit = {},
     viewModel: SearchViewModel = hiltViewModel(),
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
@@ -134,6 +138,10 @@ fun SearchScreen(
                 )
             },
             onAddToPlaylist = { addToPlaylistSong = it },
+            onOpenArtist = onOpenArtist,
+            onOpenAlbum = onOpenAlbum,
+            onPlayNext = onPlayNext,
+            onAddToQueue = onAddToQueue,
         )
     } else {
         LaunchedEffect(mode) {
@@ -233,6 +241,10 @@ private fun SearchResultsScreen(
     onLoadMore: () -> Unit,
     onDownload: (SongModel) -> Unit,
     onAddToPlaylist: (SongModel) -> Unit,
+    onOpenArtist: (String, String?) -> Unit,
+    onOpenAlbum: (String, String?, String?) -> Unit,
+    onPlayNext: (SongModel) -> Unit,
+    onAddToQueue: (SongModel) -> Unit,
 ) {
     val listState = rememberLazyListState()
 
@@ -331,6 +343,14 @@ private fun SearchResultsScreen(
                             },
                             onDownloadClick = { onDownload(song) },
                             onAddToPlaylistClick = { onAddToPlaylist(song) },
+                            onArtistClick = { artistName ->
+                                onOpenArtist(artistName, song.artist_id)
+                            },
+                            onAlbumClick = { albumName ->
+                                onOpenAlbum(albumName, song.album_id, song.artist.firstOrNull())
+                            },
+                            onPlayNextClick = { onPlayNext(song) },
+                            onAddToQueueClick = { onAddToQueue(song) },
                         )
                     }
                     if (state.isLoadingMore) {

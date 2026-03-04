@@ -15,7 +15,9 @@ data class InnerTubeRequest(
     val playlistId: String? = null,
     val playlistSetVideoId: String? = null,
     val index: Int? = null,
-    val playbackContext: PlaybackContext? = null
+    val playbackContext: PlaybackContext? = null,
+    val contentCheckOk: Boolean = true,
+    val racyCheckOk: Boolean = true,
 )
 
 @Serializable

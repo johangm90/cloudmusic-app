@@ -13,19 +13,19 @@ object InnerTubeConfig {
 
     // Client versions
     object ClientVersions {
-        const val WEB = "2.20250115.01.00"
-        const val WEB_REMIX = "1.20250113.01.00"  // YouTube Music Web
-        const val ANDROID = "19.17.34"
-        const val IOS = "19.16.3"
-        const val YOUTUBE_MUSIC_ANDROID = "7.27.52"
+        const val WEB = "2.20250312.04.00"
+        const val WEB_REMIX = "1.20250310.01.00"  // YouTube Music Web
+        const val ANDROID = "20.10.38"
+        const val IOS = "20.10.4"
+        const val YOUTUBE_MUSIC_ANDROID = "8.10.51"
     }
 
     // User agents
     object UserAgents {
-        const val WEB = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        const val ANDROID = "com.google.android.youtube/19.17.34 (Linux; U; Android 12; US) gzip"
-        const val ANDROID_MUSIC = "com.google.android.apps.youtube.music/7.27.52 (Linux; U; Android 12; US) gzip"
-        const val IOS = "com.google.ios.youtube/19.16.3 (iPhone14,5; U; CPU iOS 17_5_1 like Mac OS X)"
+        const val WEB = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
+        const val ANDROID = "com.google.android.youtube/20.10.38 (Linux; U; Android 14; US) gzip"
+        const val ANDROID_MUSIC = "com.google.android.apps.youtube.music/8.10.51 (Linux; U; Android 14; US) gzip"
+        const val IOS = "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)"
     }
 
     // Client IDs
@@ -34,6 +34,7 @@ object InnerTubeConfig {
         const val WEB_REMIX = 67  // YouTube Music Web
         const val ANDROID = 3
         const val IOS = 5
+        const val ANDROID_VR_NO_AUTH = 28
         const val YOUTUBE_MUSIC_ANDROID = 21
     }
 
@@ -123,7 +124,7 @@ enum class InnerTubeClient(
         clientId = InnerTubeConfig.ClientIds.ANDROID,
         referer = InnerTubeConfig.Referrers.YOUTUBE,
         platform = "MOBILE",
-        osVersion = "12",
+        osVersion = "14",
         loginSupported = true,
         useSignatureTimestamp = true,
         baseUrl = "https://www.youtube.com/youtubei/v1/"
@@ -136,7 +137,20 @@ enum class InnerTubeClient(
         clientId = InnerTubeConfig.ClientIds.IOS,
         referer = InnerTubeConfig.Referrers.YOUTUBE,
         platform = "MOBILE",
-        osVersion = "17.5.1",
+        osVersion = "18.3.2.22D82",
+        baseUrl = "https://www.youtube.com/youtubei/v1/"
+    ),
+    ANDROID_VR_NO_AUTH(
+        clientName = "ANDROID_VR",
+        clientVersion = "1.61.48",
+        apiKey = InnerTubeConfig.ApiKeys.WEB,
+        userAgent = "com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12; en_US; Oculus Quest 3; Build/SQ3A.220605.009.A1; Cronet/132.0.6808.3)",
+        clientId = InnerTubeConfig.ClientIds.ANDROID_VR_NO_AUTH,
+        referer = InnerTubeConfig.Referrers.YOUTUBE,
+        platform = "MOBILE",
+        osVersion = "12",
+        loginSupported = false,
+        useSignatureTimestamp = false,
         baseUrl = "https://www.youtube.com/youtubei/v1/"
     ),
     YOUTUBE_MUSIC_ANDROID(
@@ -147,7 +161,7 @@ enum class InnerTubeClient(
         clientId = InnerTubeConfig.ClientIds.YOUTUBE_MUSIC_ANDROID,
         referer = InnerTubeConfig.Referrers.YOUTUBE_MUSIC,
         platform = "MOBILE",
-        osVersion = "12",
+        osVersion = "14",
         loginSupported = true,
         useSignatureTimestamp = true,
         baseUrl = "https://music.youtube.com/youtubei/v1/"

@@ -23,6 +23,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -130,8 +133,21 @@ class InnerTube(
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string()
                 Log.e(TAG, "Error response: $errorBody")
+                val serverMessage = runCatching {
+                    val errorJson = json.parseToJsonElement(errorBody.orEmpty()).jsonObject
+                        .get("error")?.jsonObject
+                    val status = errorJson?.get("status")?.jsonPrimitive?.contentOrNull
+                    val message = errorJson?.get("message")?.jsonPrimitive?.contentOrNull
+                    listOfNotNull(status, message)
+                        .joinToString(" - ")
+                        .ifBlank { null }
+                }.getOrNull()
+                val detail = listOfNotNull(
+                    response.message.takeIf { it.isNotBlank() },
+                    serverMessage
+                ).joinToString(" - ").ifBlank { "Request failed" }
                 return@withContext Result.failure(
-                    IOException("HTTP ${response.code}: ${response.message}")
+                    IOException("HTTP ${response.code}: $detail")
                 )
             }
 

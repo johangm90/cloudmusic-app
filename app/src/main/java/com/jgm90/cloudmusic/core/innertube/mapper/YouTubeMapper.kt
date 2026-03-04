@@ -1,7 +1,10 @@
 package com.jgm90.cloudmusic.core.innertube.mapper
 
 import com.jgm90.cloudmusic.core.innertube.models.*
+import com.jgm90.cloudmusic.core.model.AlbumModel
+import com.jgm90.cloudmusic.core.model.ArtistModel
 import com.jgm90.cloudmusic.core.model.SongModel
+import java.net.URLDecoder
 
 /**
  * Result of a search operation with pagination info
@@ -57,6 +60,50 @@ object YouTubeMapper {
         )
     }
 
+
+    /**
+     * Parse YouTube Music artist search results
+     */
+    fun mapMusicSearchResponseToArtists(response: SearchResponse): List<ArtistModel> {
+        val artists = mutableListOf<ArtistModel>()
+
+        val tabs = response.contents?.tabbedSearchResultsRenderer?.tabs
+        val firstTab = tabs?.firstOrNull()?.tabRenderer
+        val sectionListRenderer = firstTab?.content?.sectionListRenderer
+
+        sectionListRenderer?.contents?.forEach { section ->
+            section.musicShelfRenderer?.contents?.forEach { content ->
+                content.musicResponsiveListItemRenderer?.let { renderer ->
+                    mapMusicResponsiveListItemToArtist(renderer)?.let { artists.add(it) }
+                }
+            }
+        }
+
+        return artists.distinctBy { it.id }
+    }
+
+    /**
+     * Parse YouTube Music album search results
+     */
+    fun mapMusicSearchResponseToAlbums(response: SearchResponse): List<AlbumModel> {
+        val albums = mutableListOf<AlbumModel>()
+
+        val tabs = response.contents?.tabbedSearchResultsRenderer?.tabs
+        val firstTab = tabs?.firstOrNull()?.tabRenderer
+        val sectionListRenderer = firstTab?.content?.sectionListRenderer
+
+        sectionListRenderer?.contents?.forEach { section ->
+            section.musicShelfRenderer?.contents?.forEach { content ->
+                content.musicResponsiveListItemRenderer?.let { renderer ->
+                    mapMusicResponsiveListItemToAlbum(renderer)?.let { albums.add(it) }
+                }
+            }
+        }
+
+        return albums.distinctBy { it.id }
+    }
+
+
     /**
      * Parse continuation response for pagination
      */
@@ -104,7 +151,9 @@ object YouTubeMapper {
 
         // Column 1: Artist • Album (parse from runs)
         var artist = ""
+        var artistId: String? = null
         var album = ""
+        var albumId: String? = null
 
         flexColumns.getOrNull(1)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.forEach { run ->
             val pageType = run.navigationEndpoint?.browseEndpoint
@@ -114,16 +163,24 @@ object YouTubeMapper {
             val text = run.text ?: ""
 
             when (pageType) {
-                "MUSIC_PAGE_TYPE_ARTIST" -> artist = text
-                "MUSIC_PAGE_TYPE_ALBUM" -> album = text
+                "MUSIC_PAGE_TYPE_ARTIST" -> {
+                    artist = text
+                    artistId = run.navigationEndpoint?.browseEndpoint?.browseId ?: artistId
+                }
+                "MUSIC_PAGE_TYPE_ALBUM" -> {
+                    album = text
+                    albumId = run.navigationEndpoint?.browseEndpoint?.browseId ?: albumId
+                }
             }
         }
 
         // Fallback: use first run as artist if not detected
         if (artist.isEmpty()) {
-            artist = flexColumns.getOrNull(1)
+            val firstRun = flexColumns.getOrNull(1)
                 ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
-                ?.firstOrNull()?.text ?: ""
+                ?.firstOrNull()
+            artist = firstRun?.text ?: ""
+            artistId = firstRun?.navigationEndpoint?.browseEndpoint?.browseId ?: artistId
         }
 
         // Extract album art thumbnail URL
@@ -136,13 +193,119 @@ object YouTubeMapper {
             id = videoId,
             name = title,
             artist = if (artist.isNotEmpty()) listOf(artist) else emptyList(),
+            artist_id = artistId,
             album = album,
+            album_id = albumId,
             pic_id = thumbnailUrl,  // Store full thumbnail URL directly
             url_id = videoId,
             lyric_id = videoId,
             source = "youtube_music"
         )
     }
+
+
+    private fun mapMusicResponsiveListItemToArtist(renderer: MusicResponsiveListItemRenderer): ArtistModel? {
+        val flexColumns = renderer.flexColumns ?: return null
+        val title = flexColumns.getOrNull(0)
+            ?.musicResponsiveListItemFlexColumnRenderer?.text?.getText()
+            ?.trim()
+            .orEmpty()
+        if (title.isEmpty()) {
+            return null
+        }
+
+        val subtitle = flexColumns.getOrNull(1)
+            ?.musicResponsiveListItemFlexColumnRenderer?.text?.getText()
+            ?.trim()
+            .orEmpty()
+
+        var artistId = renderer.navigationEndpoint?.browseEndpoint?.browseId
+        flexColumns.getOrNull(0)
+            ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
+            ?.forEach { run ->
+                val pageType = run.navigationEndpoint?.browseEndpoint
+                    ?.browseEndpointContextSupportedConfigs
+                    ?.browseEndpointContextMusicConfig?.pageType
+                if (pageType == "MUSIC_PAGE_TYPE_ARTIST") {
+                    artistId = run.navigationEndpoint?.browseEndpoint?.browseId ?: artistId
+                }
+            }
+        flexColumns.getOrNull(1)
+            ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
+            ?.forEach { run ->
+                val pageType = run.navigationEndpoint?.browseEndpoint
+                    ?.browseEndpointContextSupportedConfigs
+                    ?.browseEndpointContextMusicConfig?.pageType
+                if (pageType == "MUSIC_PAGE_TYPE_ARTIST") {
+                    artistId = run.navigationEndpoint?.browseEndpoint?.browseId ?: artistId
+                }
+            }
+
+        if (artistId.isNullOrBlank()) {
+            return null
+        }
+
+        val thumbnailUrl = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails
+            ?.lastOrNull()?.url
+            ?.let { scaleAlbumArtUrl(it, 500) }
+            ?: ""
+
+        return ArtistModel(
+            id = artistId,
+            name = title,
+            thumbnailUrl = thumbnailUrl,
+            subtitle = subtitle.ifBlank { null },
+        )
+    }
+
+    private fun mapMusicResponsiveListItemToAlbum(renderer: MusicResponsiveListItemRenderer): AlbumModel? {
+        val flexColumns = renderer.flexColumns ?: return null
+        val title = flexColumns.getOrNull(0)
+            ?.musicResponsiveListItemFlexColumnRenderer?.text?.getText()
+            ?.trim()
+            .orEmpty()
+        if (title.isEmpty()) {
+            return null
+        }
+
+        var albumId = renderer.navigationEndpoint?.browseEndpoint?.browseId
+        var artistName = ""
+
+        flexColumns.getOrNull(1)
+            ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
+            ?.forEach { run ->
+                val pageType = run.navigationEndpoint?.browseEndpoint
+                    ?.browseEndpointContextSupportedConfigs
+                    ?.browseEndpointContextMusicConfig?.pageType
+                when (pageType) {
+                    "MUSIC_PAGE_TYPE_ALBUM" -> {
+                        albumId = run.navigationEndpoint?.browseEndpoint?.browseId ?: albumId
+                    }
+                    "MUSIC_PAGE_TYPE_ARTIST" -> {
+                        if (artistName.isBlank()) {
+                            artistName = run.text.orEmpty()
+                        }
+                    }
+                }
+            }
+
+        if (albumId.isNullOrBlank()) {
+            return null
+        }
+
+        val thumbnailUrl = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails
+            ?.lastOrNull()?.url
+            ?.let { scaleAlbumArtUrl(it, 500) }
+            ?: ""
+
+        return AlbumModel(
+            id = albumId,
+            name = title,
+            artistName = artistName,
+            thumbnailUrl = thumbnailUrl,
+        )
+    }
+
 
     /**
      * Scale album art URL to desired size
@@ -178,37 +341,81 @@ object YouTubeMapper {
         }
 
         val streamingData = response.streamingData ?: return null
+        val formats = streamingData.formats.orEmpty()
+        val adaptiveFormats = streamingData.adaptiveFormats.orEmpty()
 
         // Prefer progressive mp4 (muxed audio+video) to maximize MediaPlayer compatibility.
-        streamingData.formats
-            ?.filter { it.url != null && it.mimeType?.contains("video/mp4") == true && it.audioQuality != null }
-            ?.maxByOrNull { it.bitrate ?: 0 }
-            ?.url
+        formats
+            .filter { it.mimeType?.contains("video/mp4") == true && it.audioQuality != null }
+            .maxByOrNull { it.bitrate ?: 0 }
+            ?.resolvedUrl()
             ?.let { return it }
 
         // Fallback to any audio-only format if mp4 not available.
-        val audioFormats = streamingData.adaptiveFormats
-            ?.filter { it.isAudioOnly() && it.url != null }
-            .orEmpty()
+        val audioFormats = adaptiveFormats.filter { it.isAudioOnly() }
 
         audioFormats
-            .filter { it.mimeType?.contains("audio/mp4") == true }.maxByOrNull { it.bitrate ?: 0 }
-            ?.url
+            .filter { it.mimeType?.contains("audio/mp4") == true }
+            .maxByOrNull { it.bitrate ?: 0 }
+            ?.resolvedUrl()
             ?.let { return it }
 
         // Fallback to any audio-only format.
         audioFormats.maxByOrNull { it.bitrate ?: 0 }
-            ?.url
+            ?.resolvedUrl()
             ?.let { return it }
 
-        // Fallback to combined formats
-        streamingData.formats
-            ?.filter { it.url != null }?.maxByOrNull { it.bitrate ?: 0 }?.url?.let { return it }
+        // Fallback to combined formats.
+        formats
+            .maxByOrNull { it.bitrate ?: 0 }
+            ?.resolvedUrl()
+            ?.let { return it }
 
-        // Try HLS manifest
+        // Try HLS manifest.
         streamingData.hlsManifestUrl?.let { return it }
 
         return null
+    }
+
+    private fun Format.resolvedUrl(): String? {
+        if (!url.isNullOrBlank()) {
+            return url
+        }
+        return extractUrlFromCipher(signatureCipher ?: cipher)
+    }
+
+    private fun extractUrlFromCipher(cipher: String?): String? {
+        if (cipher.isNullOrBlank()) {
+            return null
+        }
+        val params = cipher.split("&")
+            .mapNotNull { part ->
+                val index = part.indexOf('=')
+                if (index <= 0) {
+                    null
+                } else {
+                    val key = part.substring(0, index)
+                    val value = part.substring(index + 1)
+                    key to URLDecoder.decode(value, Charsets.UTF_8.name())
+                }
+            }
+            .toMap()
+
+        val decodedUrl = params["url"] ?: return null
+        val signature = params["sig"] ?: params["signature"]
+        val sp = params["sp"].orEmpty().ifBlank { "signature" }
+
+        if (signature.isNullOrBlank()) {
+            if (!params["s"].isNullOrBlank()) {
+                return null
+            }
+            return decodedUrl
+        }
+        if (decodedUrl.contains("$sp=")) {
+            return decodedUrl
+        }
+        val separator = if (decodedUrl.contains("?")) "&" else "?"
+        return "$decodedUrl$separator$sp=$signature"
     }
 
     /**
@@ -237,6 +444,7 @@ object YouTubeMapper {
             name = title,
             artist = listOf(author),
             album = existingSong?.album ?: "",
+            album_id = existingSong?.album_id,
             pic_id = existingSong?.pic_id ?: getVideoThumbnailUrl(videoId),
             url_id = videoId,
             lyric_id = videoId,
@@ -288,6 +496,7 @@ object YouTubeMapper {
             name = title,
             artist = listOf(artist),
             album = "",
+            album_id = null,
             pic_id = getVideoThumbnailUrl(videoId),
             url_id = videoId,
             lyric_id = videoId,
@@ -343,6 +552,7 @@ object YouTubeMapper {
             name = title,
             artist = listOf(artist),
             album = "",
+            album_id = null,
             pic_id = thumbnailUrl,
             url_id = videoId,
             lyric_id = videoId,
@@ -370,7 +580,9 @@ object YouTubeMapper {
                     id = videoId,
                     name = title,
                     artist = if (artist.isNotEmpty()) listOf(artist) else emptyList(),
+                    artist_id = null,
                     album = "",
+                    album_id = null,
                     pic_id = thumbnailUrl,
                     url_id = videoId,
                     lyric_id = videoId,

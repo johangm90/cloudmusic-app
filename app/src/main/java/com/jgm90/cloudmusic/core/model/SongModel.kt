@@ -6,7 +6,9 @@ data class SongModel(
     val id: String?,
     val name: String,
     val artist: List<String> = emptyList(),
+    val artist_id: String? = null,
     val album: String,
+    val album_id: String? = null,
     val pic_id: String?,  // Can be a full URL (YouTube Music) or video ID (fallback)
     val url_id: String?,
     val lyric_id: String?,

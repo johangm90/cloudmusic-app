@@ -4,4 +4,4 @@ data class PlaybackErrorEvent(
     val message: String,
     val retryCount: Int,
     val maxRetries: Int
-) : AppEvent
+)

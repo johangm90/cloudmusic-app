@@ -135,7 +135,7 @@ class NowPlayingActivity : BaseActivity() {
         if (!serviceBound) {
             startService(Intent(this, MediaPlayerService::class.java))
         } else {
-            val broadcastIntent = Intent(Broadcast_PLAY_NEW_AUDIO)
+            val broadcastIntent = Intent(Broadcast_PLAY_NEW_AUDIO).setPackage(packageName)
             sendBroadcast(broadcastIntent)
         }
     }

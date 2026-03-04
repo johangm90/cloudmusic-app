@@ -48,7 +48,11 @@ import com.jgm90.cloudmusic.core.data.preferences.AppVersionStore
 import com.jgm90.cloudmusic.core.playback.PlaybackController
 import com.jgm90.cloudmusic.core.ui.theme.AppBackground
 import com.jgm90.cloudmusic.core.ui.theme.CloudMusicTheme
+import com.jgm90.cloudmusic.feature.album.presentation.AlbumScreen
+import com.jgm90.cloudmusic.feature.artist.presentation.ArtistScreen
+import com.jgm90.cloudmusic.feature.discover.presentation.DiscoverScreen
 import com.jgm90.cloudmusic.feature.playback.presentation.NowPlayingActivity
+import com.jgm90.cloudmusic.feature.queue.presentation.QueueScreen
 import com.jgm90.cloudmusic.feature.playback.presentation.PlaybackControlsBar
 import com.jgm90.cloudmusic.feature.playlist.model.PlaylistModel
 import com.jgm90.cloudmusic.feature.playlist.presentation.LibraryScreen
@@ -95,6 +99,8 @@ class MainActivity : BaseActivity() {
                     onOpenNowPlaying = { openNowPlaying() },
                     onOpenNowPlayingWithList = { index, list -> openNowPlaying(index, list) },
                     onOpenPlaylist = { playlist -> openPlaylistDetail(playlist) },
+                    onPlayNext = { song -> playNext(song) },
+                    onAddToQueue = { song -> addToQueue(song) },
                 )
             }
         }
@@ -133,6 +139,14 @@ class MainActivity : BaseActivity() {
         startActivity(intent)
     }
 
+    private fun playNext(song: com.jgm90.cloudmusic.core.model.SongModel) {
+        playbackController.insertNext(song)
+    }
+
+    private fun addToQueue(song: com.jgm90.cloudmusic.core.model.SongModel) {
+        playbackController.appendToQueue(song)
+    }
+
     private fun openPlaylistDetail(playlist: PlaylistModel) {
         val intent = Intent(this, PlaylistDetailActivity::class.java)
         intent.putExtra("PLAYLIST_ID", playlist.playlist_id)
@@ -154,10 +168,14 @@ class MainActivity : BaseActivity() {
 
 private enum class HomeDestination {
     Search,
+    Discover,
     Library,
     RecentlyPlayed,
     LikedSongs,
     Settings,
+    Artist,
+    Album,
+    Queue,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -169,14 +187,23 @@ private fun MainContent(
     onOpenNowPlaying: () -> Unit,
     onOpenNowPlayingWithList: (Int, List<com.jgm90.cloudmusic.core.model.SongModel>) -> Unit,
     onOpenPlaylist: (PlaylistModel) -> Unit,
+    onPlayNext: (com.jgm90.cloudmusic.core.model.SongModel) -> Unit,
+    onAddToQueue: (com.jgm90.cloudmusic.core.model.SongModel) -> Unit,
 ) {
     var destination by remember { mutableStateOf(HomeDestination.Search) }
     var showChangelogDialog by remember { mutableStateOf(showChangelog) }
     val canNavigateBack =
         destination == HomeDestination.RecentlyPlayed ||
                 destination == HomeDestination.LikedSongs ||
-                destination == HomeDestination.Settings
+                destination == HomeDestination.Settings ||
+                destination == HomeDestination.Artist ||
+                destination == HomeDestination.Album
     var searchExpanded by remember { mutableStateOf(false) }
+    var selectedArtistName by remember { mutableStateOf("") }
+    var selectedArtistId by remember { mutableStateOf<String?>(null) }
+    var selectedAlbumName by remember { mutableStateOf("") }
+    var selectedAlbumId by remember { mutableStateOf<String?>(null) }
+    var selectedAlbumArtist by remember { mutableStateOf<String?>(null) }
     val showTopBar = !canNavigateBack && !(destination == HomeDestination.Search && searchExpanded)
 
     AppBackground {
@@ -190,14 +217,23 @@ private fun MainContent(
                             Text(
                                 text = when (destination) {
                                     HomeDestination.Search -> stringResource(R.string.search)
+                                    HomeDestination.Discover -> stringResource(R.string.discover)
                                     HomeDestination.Library -> stringResource(R.string.library)
                                     HomeDestination.RecentlyPlayed -> stringResource(R.string.recently_played)
                                     HomeDestination.LikedSongs -> stringResource(R.string.liked_songs)
                                     HomeDestination.Settings -> stringResource(R.string.settings)
+                                    HomeDestination.Artist -> selectedArtistName.ifBlank { stringResource(R.string.artist) }
+                                    HomeDestination.Album -> selectedAlbumName.ifBlank { stringResource(R.string.album) }
+                                    HomeDestination.Queue -> stringResource(R.string.queue)
                                 }
                             )
                         },
                         actions = {
+                            if (showPlayback && destination != HomeDestination.Queue) {
+                                TextButton(onClick = { destination = HomeDestination.Queue }) {
+                                    Text(text = stringResource(R.string.queue))
+                                }
+                            }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
@@ -227,6 +263,25 @@ private fun MainContent(
                                 )
                             },
                             label = { Text(text = stringResource(R.string.search)) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onSurface,
+                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                indicatorColor = Color.Transparent,
+                            )
+                        )
+
+                        NavigationBarItem(
+                            selected = destination == HomeDestination.Discover,
+                            onClick = { destination = HomeDestination.Discover },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_info_black_24dp),
+                                    contentDescription = null,
+                                )
+                            },
+                            label = { Text(text = stringResource(R.string.discover)) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.onSurface,
                                 selectedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -279,7 +334,37 @@ private fun MainContent(
                 when (destination) {
                     HomeDestination.Search -> SearchScreen(
                         onOpenNowPlaying = onOpenNowPlayingWithList,
+                        onOpenArtist = { artistName, artistId ->
+                            selectedArtistName = artistName
+                            selectedArtistId = artistId
+                            destination = HomeDestination.Artist
+                        },
+                        onOpenAlbum = { albumName, albumId, artistName ->
+                            selectedAlbumName = albumName
+                            selectedAlbumId = albumId
+                            selectedAlbumArtist = artistName
+                            destination = HomeDestination.Album
+                        },
                         onSearchActiveChange = { searchExpanded = it },
+                        onPlayNext = onPlayNext,
+                        onAddToQueue = onAddToQueue,
+                    )
+
+                    HomeDestination.Discover -> DiscoverScreen(
+                        onOpenNowPlaying = onOpenNowPlayingWithList,
+                        onOpenArtist = { artistName, artistId ->
+                            selectedArtistName = artistName
+                            selectedArtistId = artistId
+                            destination = HomeDestination.Artist
+                        },
+                        onOpenAlbum = { albumName, albumId, artistName ->
+                            selectedAlbumName = albumName
+                            selectedAlbumId = albumId
+                            selectedAlbumArtist = artistName
+                            destination = HomeDestination.Album
+                        },
+                        onPlayNext = onPlayNext,
+                        onAddToQueue = onAddToQueue,
                     )
 
                     HomeDestination.Library -> LibraryScreen(
@@ -300,6 +385,49 @@ private fun MainContent(
 
                     HomeDestination.Settings -> SettingsScreen(
                         onBack = { destination = HomeDestination.Search },
+                    )
+
+                    HomeDestination.Artist -> ArtistScreen(
+                        artistName = selectedArtistName,
+                        artistId = selectedArtistId,
+                        onBack = { destination = HomeDestination.Search },
+                        onOpenNowPlaying = onOpenNowPlayingWithList,
+                        onOpenArtist = { artistName, artistId ->
+                            selectedArtistName = artistName
+                            selectedArtistId = artistId
+                        },
+                        onOpenAlbum = { albumName, albumId, artistName ->
+                            selectedAlbumName = albumName
+                            selectedAlbumId = albumId
+                            selectedAlbumArtist = artistName
+                            destination = HomeDestination.Album
+                        },
+                        onPlayNext = onPlayNext,
+                        onAddToQueue = onAddToQueue,
+                    )
+
+                    HomeDestination.Album -> AlbumScreen(
+                        albumName = selectedAlbumName,
+                        albumId = selectedAlbumId,
+                        seedArtistName = selectedAlbumArtist,
+                        onBack = { destination = HomeDestination.Search },
+                        onOpenNowPlaying = onOpenNowPlayingWithList,
+                        onOpenArtist = { artistName, artistId ->
+                            selectedArtistName = artistName
+                            selectedArtistId = artistId
+                            destination = HomeDestination.Artist
+                        },
+                        onOpenAlbum = { albumName, albumId, artistName ->
+                            selectedAlbumName = albumName
+                            selectedAlbumId = albumId
+                            selectedAlbumArtist = artistName
+                        },
+                        onPlayNext = onPlayNext,
+                        onAddToQueue = onAddToQueue,
+                    )
+
+                    HomeDestination.Queue -> QueueScreen(
+                        onOpenNowPlaying = onOpenNowPlaying,
                     )
                 }
             }

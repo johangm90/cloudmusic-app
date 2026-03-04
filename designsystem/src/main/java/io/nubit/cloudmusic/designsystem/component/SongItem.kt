@@ -43,6 +43,10 @@ fun SongItem(
     onClick: () -> Unit = { },
     onDownloadClick: () -> Unit = { },
     onAddToPlaylistClick: () -> Unit = { },
+    onPlayNextClick: () -> Unit = { },
+    onAddToQueueClick: () -> Unit = { },
+    onArtistClick: ((String) -> Unit)? = null,
+    onAlbumClick: ((String) -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -84,13 +88,33 @@ fun SongItem(
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
+                val artistDisplay = artistName.joinToString(", ")
                 Text(
-                    text = artistName.joinToString(", "),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    text = artistDisplay,
+                    color = if (onArtistClick != null && artistName.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     maxLines = 1,
                     style = MaterialTheme.typography.bodySmall,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = if (onArtistClick != null && artistName.isNotEmpty()) {
+                        Modifier.clickable { onArtistClick(artistName.first()) }
+                    } else {
+                        Modifier
+                    },
                 )
+                if (albumName.isNotBlank()) {
+                    Text(
+                        text = albumName,
+                        color = if (onAlbumClick != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        style = MaterialTheme.typography.bodySmall,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = if (onAlbumClick != null) {
+                            Modifier.clickable { onAlbumClick(albumName) }
+                        } else {
+                            Modifier
+                        },
+                    )
+                }
             }
             Box {
                 IconButton(onClick = { expanded = true }) {
@@ -110,6 +134,20 @@ fun SongItem(
                         onClick = {
                             expanded = false
                             onDownloadClick()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Play next") },
+                        onClick = {
+                            expanded = false
+                            onPlayNextClick()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Add to queue") },
+                        onClick = {
+                            expanded = false
+                            onAddToQueueClick()
                         }
                     )
                     DropdownMenuItem(

@@ -52,4 +52,26 @@
     <string name="delete_song_title">Eliminar cancion</string>
     <string name="delete_song_message">¿Seguro que deseas eliminar esta cancion de la playlist?</string>
     <string name="title_activity_playlist_detail">Playlist</string>
+    <string name="discover">Descubrir</string>
+    <string name="discover_home">Desde inicio</string>
+    <string name="discover_charts">Tendencias</string>
+    <string name="discover_empty">No hay contenido para descubrir</string>
+    <string name="queue">Cola</string>
+    <string name="queue_empty">La cola esta vacia</string>
+    <string name="queue_now_playing">Reproduciendo ahora</string>
+    <string name="move_up">Subir</string>
+    <string name="move_down">Bajar</string>
+    <string name="remove_from_queue">Quitar</string>
+    <string name="artist">Artista</string>
+    <string name="album">Album</string>
+    <string name="album_load_failed">No se pudo cargar el album</string>
+    <string name="no_album_songs">No se encontraron canciones para este album</string>
+    <string name="artist_top_songs">Canciones destacadas</string>
+    <string name="artist_load_failed">No se pudo cargar el artista</string>
+    <string name="no_artist_songs">No se encontraron canciones para este artista</string>
+
+    <plurals name="playlist_messages">
+        <item quantity="one">%d cancion</item>
+        <item quantity="other">%d canciones</item>
+    </plurals>
 </resources>

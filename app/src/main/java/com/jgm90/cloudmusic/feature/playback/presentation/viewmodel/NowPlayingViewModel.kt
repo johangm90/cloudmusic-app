@@ -399,6 +399,31 @@ class NowPlayingViewModel @Inject constructor(
                 userSeeking = false
                 playerService?.seek(_uiState.value.progressMs)
             }
+            NowPlayingAction.DismissError -> {
+                _uiState.update { it.copy(errorMessage = null, retryCount = 0) }
+            }
+            is NowPlayingAction.AddToQueue -> {
+                playbackController.appendToQueue(action.song)
+            }
+            is NowPlayingAction.AddToQueueNext -> {
+                playbackController.insertNext(action.song)
+            }
+            is NowPlayingAction.RemoveFromQueue -> {
+                playbackController.removeAt(action.index)
+            }
+            is NowPlayingAction.SkipToQueueItem -> {
+                val queueSize = playbackController.queueState.value.queue.size
+                if (action.index !in 0 until queueSize) return
+                playbackController.setIndex(action.index)
+                val service = playerService ?: return
+                val currentIndex = service.current_index()
+                when {
+                    currentIndex < 0 -> Unit
+                    action.index > currentIndex -> repeat(action.index - currentIndex) { service.skipToNext() }
+                    action.index < currentIndex -> repeat(currentIndex - action.index) { service.skipToPrevious() }
+                }
+                loadCurrentSongInfo()
+            }
         }
     }
 
